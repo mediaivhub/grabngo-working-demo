@@ -1,26 +1,249 @@
 @import "tailwindcss";
 
+@theme {
+  --color-ink: #1a1a1a;
+  --color-text: #2e3b42;
+  --color-muted: #485459;
+  --color-gray: #8e8e8e;
+  --color-gray-light: #b5b5b5;
+  --color-surface: #f4f4f4;
+  --color-card: #f7f7f7;
+  --color-divider: #e6e6e6;
+  --color-brand: #e60e0d;
+  --color-accent: #ff7f7e;
+  --color-orange: #f0752d;
+  --color-cream: #fdf3ea;
+  --color-green: #3e9a5e;
+  --color-error: #e5645c;
+  --color-field: #f2f2f2;
+  --color-field-text: #616161;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html,
+body {
+  height: 100%;
+  background: #fff;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Phone-only app. On a phone it fills the screen; anywhere wider it sits inside an iPhone mockup. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.app-shell {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #fff;
+}
+
+.device-stage {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 30%, #f6f3ef 0%, #e2ddd6 70%);
+}
+
+.device-scaler {
+  width: calc(414px * var(--device-scale, 1));
+  height: calc(868px * var(--device-scale, 1));
+}
+
+.device {
+  transform: scale(var(--device-scale, 1));
+  transform-origin: top left;
+  position: relative;
+  width: 414px;
+  height: 868px;
+  padding: 12px;
+  border-radius: 68px;
+  background: #1b1b1d;
+  box-shadow:
+    0 0 0 2px #3a3a3d,
+    0 0 0 5px #121214,
+    0 40px 90px rgba(40, 30, 20, 0.35);
+  flex-shrink: 0;
+}
+
+.device .app-shell {
+  width: 390px;
+  height: 844px;
+  border-radius: 56px;
+  /* The status bar and home indicator are drawn by the mockup; screens pad around them. */
+  --safe-top: 50px;
+  --safe-bottom: 26px;
+}
+
+.device-island {
+  position: absolute;
+  top: 23px;
+  left: 50%;
+  width: 124px;
+  height: 36px;
+  margin-left: -62px;
+  border-radius: 20px;
+  background: #000;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.device-status {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  height: 50px;
+  padding: 0 34px 0 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 600;
+  z-index: 55;
+  pointer-events: none;
+  color: var(--status-color, #000);
+}
+
+.device-home {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  width: 136px;
+  height: 5px;
+  margin-left: -68px;
+  border-radius: 3px;
+  background: var(--status-color, #000);
+  z-index: 60;
+  pointer-events: none;
+}
+
+.device-button {
+  position: absolute;
+  width: 4px;
+  border-radius: 2px;
+  background: #2a2a2d;
+}
+
+/* Phones: no mockup, the app fills the screen and respects the real notch / home bar. */
+@media (max-width: 499px) {
+  .device-stage {
+    display: block;
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+  .device-scaler {
+    width: auto;
+    height: auto;
+  }
+  .device {
+    width: 100%;
+    height: 100dvh;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+    transform: none;
+  }
+  .device .app-shell {
+    width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .device-island,
+  .device-status,
+  .device-home,
+  .device-button {
+    display: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.pt-safe {
+  padding-top: var(--safe-top);
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar,
+.hscroll::-webkit-scrollbar {
+  display: none;
+}
+.hscroll {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pb-safe {
+  padding-bottom: max(var(--safe-bottom), 12px);
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+input {
+  outline: none;
+  min-width: 0;
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.fade-in {
+  animation: fade-in 0.35s ease-out both;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+.sheet-in {
+  animation: sheet-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .sheet-in {
+    animation: none;
+  }
 }
