@@ -71,6 +71,8 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
   useEffect(() => {
     if (!model) return;
     let cancelled = false;
+    // Don't keep the car hidden if the viewer is slow to report it's framed.
+    const reveal = setTimeout(() => !cancelled && setState((st) => (st === 'loading' ? 'ready' : st)), 6000);
     loadSketchfab()
       .then(() => {
         if (cancelled || !frame.current || !window.Sketchfab) return;
@@ -104,6 +106,7 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
       .catch(() => !cancelled && setState('error'));
     return () => {
       cancelled = true;
+      clearTimeout(reveal);
     };
   }, [model, bg]);
 

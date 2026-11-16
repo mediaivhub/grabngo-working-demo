@@ -44,27 +44,21 @@ function CarForm({ initial }: { initial: Car | null }) {
           <NavHeader title="My Car" fallback="/profile" className="-mx-5" />
           <p className="text-[14px] leading-5 text-gray">For curbside pickup. Staff use your plate, make and colour to find your car.</p>
           <p className="mb-2 mt-4 text-[13px] font-medium text-gray">Choose your car</p>
-          <div role="radiogroup" aria-label="Car" className="grid grid-cols-2 gap-2">
-            {CARS_3D.map((c) => {
-              const on = c.make === car.make && c.model === car.model;
-              return (
-                <button
-                  key={`${c.make}|${c.model}`}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => set(c)}
-                  className={cx('rounded-2xl border-[1.5px] p-3 text-left transition', on ? 'border-ink bg-white' : 'border-transparent bg-field')}>
-                  <span className="block text-[12px] text-gray">{c.make}</span>
-                  <span className="mt-0.5 block text-[16px] font-semibold">{c.model}</span>
-                  <span className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray">
-                    <span className="h-2.5 w-2.5 rounded-full border border-black/15" style={{ background: c.color.hex }} />
-                    {c.color.name} · 3D
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <select
+            aria-label="Car"
+            value={`${car.make}|${car.model}`}
+            onChange={(e) => {
+              const pick = CARS_3D.find((c) => `${c.make}|${c.model}` === e.target.value);
+              if (pick) set(pick);
+            }}
+            className={fieldCls}
+            style={selectBg}>
+            {CARS_3D.map((c) => (
+              <option key={`${c.make}|${c.model}`} value={`${c.make}|${c.model}`}>
+                {c.make} {c.model} · {c.color.name}
+              </option>
+            ))}
+          </select>
           <CarStage car={car} className="-mx-1.5 mt-3" />
           <p className="mt-1.5 text-right text-[11px] text-gray">Real 3D model · more cars coming soon</p>
           <p className="mb-2 mt-4 text-[13px] font-medium text-gray">Plate</p>
