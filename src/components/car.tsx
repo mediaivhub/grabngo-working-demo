@@ -77,7 +77,8 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
       .then(() => {
         if (cancelled || !frame.current || !window.Sketchfab) return;
         new window.Sketchfab(frame.current).init(model.uid, {
-          autostart: 1, autospin: 0.25, preload: 1, dnt: 1, transparent: 0,
+          // No wheel / double-click zoom: scrolling the page must never zoom the car. Drag still rotates.
+          autostart: 1, autospin: 0.25, preload: 1, dnt: 1, transparent: 0, scrollwheel: 0, double_click: 0,
           ui_infos: 0, ui_controls: 0, ui_stop: 0, ui_watermark: 0, ui_watermark_link: 0, ui_hint: 0,
           ui_inspector: 0, ui_settings: 0, ui_vr: 0, ui_ar: 0, ui_fullscreen: 0, ui_annotations: 0, ui_help: 0, ui_loading: 0,
           success(api: SketchfabApi) {
@@ -91,7 +92,7 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
                     api.getCameraLookAt((err, cam) => {
                       if (!cancelled) setState('ready');
                       if (err) return;
-                      api.setCameraLookAt(cam.position.map((p, k) => cam.target[k] + (p - cam.target[k]) * 1.08), cam.target, 0.6);
+                      api.setCameraLookAt(cam.position.map((p, k) => cam.target[k] + (p - cam.target[k]) * 1.15), cam.target, 0.6);
                     }),
                   ),
                 600,
