@@ -3,10 +3,12 @@
 import { Banknote, Check, ChevronRight, Plus, Ticket } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
+import { CarArt } from '@/components/car';
 import { OrderSummary, PickupInfo, Section, TotalBar } from '@/components/OrderBlocks';
 import { CardLogo, OutlineLogo } from '@/components/CardLogo';
 import { NavHeader, RadioDot } from '@/components/ui';
 import { brandName } from '@/lib/cards';
+import { carName, plateText } from '@/lib/car';
 import { getPlace } from '@/data/mock';
 import { orderTotals } from '@/lib/pricing';
 import { useStore, type PaymentMethod } from '@/store/AppStore';
@@ -15,7 +17,8 @@ type Choice = { id: string; method: PaymentMethod; label: string; sub: string; l
 
 export default function CheckoutScreen() {
   const router = useRouter();
-  const { cart, placeOrder, cards } = useStore();
+  const { cart, placeOrder, cards, car } = useStore();
+  const atCar = cart.pickup === 'car' && !!car;
   // Apple Pay is always pre-selected; other methods sit behind "Change payment method".
   const [choiceId, setChoiceId] = useState('apple-pay');
   const [changing, setChanging] = useState(false);
@@ -99,7 +102,17 @@ export default function CheckoutScreen() {
             <ChevronRight size={20} />
           </div>
         </Section>
-        <PickupInfo place={place} />
+        <PickupInfo place={place} hideArt={atCar}>
+          {atCar && car && (
+            <div className="mt-4 flex items-center gap-3 rounded-2xl bg-[#f7f5f2] p-2.5 pr-4">
+              <CarArt car={car} className="w-[92px] shrink-0" />
+              <p className="text-[14px] leading-[19px]">
+                Curbside · we’ll bring it to your <b className="font-semibold">{carName(car)}</b>
+                <span className="mt-0.5 block text-gray">{plateText(car)}</span>
+              </p>
+            </div>
+          )}
+        </PickupInfo>
         <OrderSummary totals={totals} />
       </div>
       <TotalBar

@@ -3,9 +3,11 @@
 import { X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { CircleButton, EmptyState, orbs, Price } from '@/components/ui';
+import { Car3DSheet, CarArt } from '@/components/car';
+import { CircleButton, cx, EmptyState, orbs, Price } from '@/components/ui';
+import { carName, model3dFor, plateText } from '@/lib/car';
 import { getPlace, getProduct } from '@/data/mock';
 import { useCountdown } from '@/lib/useCountdown';
 import { useStore, type Order } from '@/store/AppStore';
@@ -41,6 +43,7 @@ function StatusBody({ order }: { order: Order }) {
         <span className="text-[72px] font-extrabold leading-20 tracking-[-2px] tabular-nums">{done ? 'Ready' : label}</span>
         <span className="text-[15px] text-gray">{done ? 'Your order is ready for pickup.' : 'Until it’s ready for pickup.'}</span>
       </div>
+      {order.car && <Curbside order={order} />}
       <h2 className="mb-5 mt-9 text-center text-[26px]">Order Items</h2>
       {order.lines.map((l) => {
         const p = getProduct(l.productId);
@@ -74,5 +77,49 @@ function StatusBody({ order }: { order: Order }) {
         </Link>
       </div>
     </div>
+  );
+}
+
+/** Curbside pickup: the customer's car in its bay, and "I've arrived" so staff walk the order out. */
+function Curbside({ order }: { order: Order }) {
+  const { markArrived } = useStore();
+  const [show3d, setShow3d] = useState(false);
+  const car = order.car!;
+  const arrived = !!order.arrivedAt;
+  return (
+    <>
+      <div
+        className="relative mt-4 h-[300px] overflow-hidden rounded-[28px]"
+        style={{
+          // A pool of light over the bay so dark paint still reads.
+          background: 'radial-gradient(ellipse 70% 55% at 50% 78%, rgba(255,244,225,0.28), rgba(255,244,225,0) 70%), linear-gradient(#3a3a3e 0%, #232326 100%)',
+        }}>
+        <div className="absolute inset-x-4 top-4 z-[2] flex justify-between text-[13px] text-white">
+          <span className="rounded-xl bg-white/12 px-2.5 py-1.5 backdrop-blur">Curbside · Bay 3</span>
+          <span className="rounded-xl bg-white/12 px-2.5 py-1.5 backdrop-blur">{plateText(car)}</span>
+        </div>
+        <div className="absolute bottom-0 left-1/2 h-40 w-[250px] -translate-x-1/2 rounded-t-[10px] border-[3px] border-b-0 border-dashed border-white/35">
+          <span className="absolute left-1/2 top-2.5 -translate-x-1/2 text-[12px] font-bold tracking-[2px] text-white/55">BAY 3</span>
+        </div>
+        <CarArt car={car} brakes={arrived} className="absolute bottom-1.5 left-1/2 w-[250px] -translate-x-1/2" />
+        {model3dFor(car) && (
+          <button type="button" onClick={() => setShow3d(true)} className="absolute bottom-3 right-3 z-[2] rounded-xl bg-white/90 px-2.5 py-1.5 text-[12px] font-semibold">
+            View in 3D
+          </button>
+        )}
+      </div>
+      <button
+        type="button"
+        disabled={arrived}
+        onClick={() => markArrived(order.id)}
+        className={cx('mt-3.5 h-[58px] w-full rounded-full text-[17px] font-semibold text-white transition-colors', arrived ? 'bg-black' : 'bg-green')}>
+        {arrived ? 'Staff are on the way' : 'I’ve arrived'}
+      </button>
+      <p className="mt-2.5 text-center text-[13px] text-gray">
+        {arrived ? 'Bay 3 · Your order is coming out to the ' : 'We’ll bring your order to your '}
+        <b className="font-semibold text-ink">{carName(car)}</b>.
+      </p>
+      {show3d && <Car3DSheet car={car} onClose={() => setShow3d(false)} />}
+    </>
   );
 }

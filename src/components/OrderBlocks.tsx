@@ -7,7 +7,7 @@ export function Section({ children, className }: { children: ReactNode; classNam
   return <section className={cx('mt-1.5 rounded-3xl bg-white p-5', className)}>{children}</section>;
 }
 
-export function PickupInfo({ place, children }: { place: Place; children?: ReactNode }) {
+export function PickupInfo({ place, children, hideArt }: { place: Place; children?: ReactNode; hideArt?: boolean }) {
   return (
     <Section>
       <div className="flex items-center">
@@ -17,8 +17,10 @@ export function PickupInfo({ place, children }: { place: Place; children?: React
             {place.name}, {place.address}
           </p>
         </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/images/misc/cup-carrier.png" alt="" className="h-[78px] w-24 object-contain" />
+        {!hideArt && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/images/misc/cup-carrier.png" alt="" className="h-[78px] w-24 object-contain" />
+        )}
       </div>
       {children}
     </Section>

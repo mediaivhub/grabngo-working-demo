@@ -247,3 +247,16 @@ input {
     animation: none;
   }
 }
+
+/* Car swaps in with a small settle when make, model or colour changes. */
+@keyframes car-pop {
+  /* Tailwind's -translate-x-1/2 uses the separate `translate` property, so only nudge here. */
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.car-pop {
+  animation: car-pop 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .car-pop { animation: none; }
+}

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import { getMenu, menuProduct, PREP_SECONDS, seedNotifications, type AppNotification, type FoodTag } from '@/data/mock';
+import { type Car, DEMO_CAR, plateText } from '@/lib/car';
 import { setOnboarded } from '@/lib/onboarding';
 import { orderTotals, unitPrice, type AddonSelection, type Size } from '@/lib/pricing';
 
@@ -15,6 +16,7 @@ export type CartLine = {
 };
 
 export type OrderStatus = 'preparing' | 'ready' | 'completed';
+export type PickupMode = 'counter' | 'car';
 export type PaymentMethod = 'cash' | 'apple-pay' | 'google-pay' | 'card';
 
 export type Order = {
@@ -29,6 +31,10 @@ export type Order = {
   rating?: number;
   payment: PaymentMethod;
   carPlate?: string;
+  /** Set for curbside orders: the car staff walk the order out to. */
+  car?: Car;
+  /** When the customer tapped "I've arrived". */
+  arrivedAt?: number;
 };
 
 export type User = { fullName: string; nickname: string; phone: string; dob?: string; avatarUri?: string };
@@ -47,7 +53,9 @@ export const EMPTY_FILTERS: SearchFilters = { minPrice: null, maxPrice: null, fo
 type State = {
   /** True once saved data has been loaded into the store (never saved itself). */
   hydrated: boolean;
-  cart: { placeId: string; lines: CartLine[]; carPlate: string };
+  cart: { placeId: string; lines: CartLine[]; carPlate: string; pickup?: PickupMode };
+  /** The customer's saved car for curbside pickup. */
+  car: Car | null;
   user: User | null;
   orders: Order[];
   usualMode: UsualMode;
@@ -88,7 +96,8 @@ export const TEST_ACCOUNT: User = { fullName: 'Noor Al Rashid', nickname: 'Noor'
 
 const initialState: State = {
   hydrated: false,
-  cart: { placeId: 'orfali', lines: [], carPlate: '' },
+  cart: { placeId: 'orfali', lines: [], carPlate: '', pickup: 'counter' },
+  car: DEMO_CAR,
   user: null,
   orders: TEST_ORDERS,
   usualMode: 'recent',
@@ -144,7 +153,10 @@ type Action =
   | { type: 'addCard'; card: SavedCard }
   | { type: 'defaultPayment'; id: string }
   | { type: 'pref'; key: string; value: boolean }
-  | { type: 'chat'; message: ChatMessage };
+  | { type: 'chat'; message: ChatMessage }
+  | { type: 'car'; car: Car | null }
+  | { type: 'pickup'; mode: PickupMode }
+  | { type: 'arrived'; id: string; at: number };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -221,6 +233,12 @@ function reducer(state: State, action: Action): State {
       return { ...state, prefs: { ...state.prefs, [action.key]: action.value } };
     case 'chat':
       return { ...state, chat: [...state.chat, action.message] };
+    case 'car':
+      return { ...state, car: action.car };
+    case 'pickup':
+      return { ...state, cart: { ...state.cart, pickup: action.mode } };
+    case 'arrived':
+      return { ...state, orders: state.orders.map((o) => (o.id === action.id ? { ...o, arrivedAt: action.at } : o)) };
   }
 }
 
@@ -292,12 +310,12 @@ function useStoreValue() {
         status: 'preparing',
         favorite: false,
         payment,
-        carPlate: state.cart.carPlate || undefined,
+        ...(state.cart.pickup === 'car' && state.car ? { car: state.car, carPlate: plateText(state.car) } : {}),
       };
       dispatch({ type: 'placeOrder', order });
       return order.id;
     },
-    [state.cart],
+    [state.cart, state.car],
   );
 
   const reorder = useCallback((order: Order) => {
@@ -318,6 +336,9 @@ function useStoreValue() {
       reorder,
       setQty: (key: string, qty: number) => dispatch({ type: 'qty', key, qty }),
       setCarPlate: (value: string) => dispatch({ type: 'carPlate', value }),
+      setCar: (car: Car | null) => dispatch({ type: 'car', car }),
+      setPickupMode: (mode: PickupMode) => dispatch({ type: 'pickup', mode }),
+      markArrived: (id: string) => dispatch({ type: 'arrived', id, at: Date.now() }),
       login: (user: User) => {
         setOnboarded();
         dispatch({ type: 'login', user });

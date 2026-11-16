@@ -1,16 +1,17 @@
 'use client';
 
-import { Bell, ChefHat, ChevronRight, Cookie, CreditCard, HelpCircle, Lock, LogOut, MapPin, MessageCircle, User, UtensilsCrossed } from 'lucide-react';
+import { Bell, Car, ChefHat, ChevronRight, Cookie, CreditCard, HelpCircle, Lock, LogOut, MapPin, MessageCircle, User, UtensilsCrossed } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { avatarSrc } from '@/components/cards';
 import { SettingsRow } from '@/components/settings';
 import { Button, NavHeader } from '@/components/ui';
+import { plateText } from '@/lib/car';
 import { useStore } from '@/store/AppStore';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, orders, favoriteProducts, logout } = useStore();
+  const { user, orders, favoriteProducts, logout, car } = useStore();
   const [confirmLogout, setConfirmLogout] = useState(false);
   // Screens that need an account send guests to log in first.
   const go = (href: string) => router.push(user ? href : '/auth/login');
@@ -49,6 +50,7 @@ export default function ProfileScreen() {
         </div>
         <div className="pb-safe mt-10 flex-1 rounded-t-[30px] bg-white px-5 pb-10 pt-3.5">
           <SettingsRow first Icon={User} title="Account Settings" chevron onClick={() => go('/account/details')} />
+          <SettingsRow Icon={Car} title="My Car" subtitle={car ? `${car.make} ${car.model} · ${plateText(car)}` : 'For curbside pickup'} chevron onClick={() => go('/account/car')} />
           <SettingsRow Icon={Bell} title="Notifications" chevron onClick={() => router.push('/account/notifications')} />
           <SettingsRow Icon={Lock} title="Privacy & Security" chevron onClick={() => router.push('/account/privacy')} />
           <SettingsRow Icon={MapPin} title="Location Access" chevron onClick={() => router.push('/account/privacy')} />
