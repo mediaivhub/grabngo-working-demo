@@ -3,9 +3,9 @@
 import { X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Car3DSheet, CarArt } from '@/components/car';
+import { Car3DView, PlateBadge } from '@/components/car';
 import { CircleButton, cx, EmptyState, orbs, Price } from '@/components/ui';
 import { carName, model3dFor, plateText } from '@/lib/car';
 import { getPlace, getProduct } from '@/data/mock';
@@ -83,7 +83,6 @@ function StatusBody({ order }: { order: Order }) {
 /** Curbside pickup: the customer's car in its bay, and "I've arrived" so staff walk the order out. */
 function Curbside({ order }: { order: Order }) {
   const { markArrived } = useStore();
-  const [show3d, setShow3d] = useState(false);
   const car = order.car!;
   const arrived = !!order.arrivedAt;
   return (
@@ -98,14 +97,14 @@ function Curbside({ order }: { order: Order }) {
           <span className="rounded-xl bg-white/12 px-2.5 py-1.5 backdrop-blur">Curbside · Bay 3</span>
           <span className="rounded-xl bg-white/12 px-2.5 py-1.5 backdrop-blur">{plateText(car)}</span>
         </div>
-        <div className="absolute bottom-0 left-1/2 h-40 w-[250px] -translate-x-1/2 rounded-t-[10px] border-[3px] border-b-0 border-dashed border-white/35">
-          <span className="absolute left-1/2 top-2.5 -translate-x-1/2 text-[12px] font-bold tracking-[2px] text-white/55">BAY 3</span>
-        </div>
-        <CarArt car={car} brakes={arrived} className="absolute bottom-1.5 left-1/2 w-[250px] -translate-x-1/2" />
-        {model3dFor(car) && (
-          <button type="button" onClick={() => setShow3d(true)} className="absolute bottom-3 right-3 z-[2] rounded-xl bg-white/90 px-2.5 py-1.5 text-[12px] font-semibold">
-            View in 3D
-          </button>
+        {model3dFor(car) ? (
+          <>
+            <Car3DView key={model3dFor(car)!.uid} car={car} background={[0.17, 0.17, 0.18]} dark />
+            {arrived && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-24 bg-gradient-to-t from-[#ff3b30]/25 to-transparent" />}
+          </>
+        ) : (
+          // Older orders saved a car without a 3D model: show just the plate.
+          <PlateBadge car={car} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-150" />
         )}
       </div>
       <button
@@ -119,7 +118,6 @@ function Curbside({ order }: { order: Order }) {
         {arrived ? 'Bay 3 · Your order is coming out to the ' : 'We’ll bring your order to your '}
         <b className="font-semibold text-ink">{carName(car)}</b>.
       </p>
-      {show3d && <Car3DSheet car={car} onClose={() => setShow3d(false)} />}
     </>
   );
 }

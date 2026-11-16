@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import { getMenu, menuProduct, PREP_SECONDS, seedNotifications, type AppNotification, type FoodTag } from '@/data/mock';
-import { type Car, DEMO_CAR, plateText } from '@/lib/car';
+import { type Car, DEMO_CAR, model3dFor, plateText } from '@/lib/car';
 import { setOnboarded } from '@/lib/onboarding';
 import { orderTotals, unitPrice, type AddonSelection, type Size } from '@/lib/pricing';
 
@@ -160,8 +160,12 @@ type Action =
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'hydrate':
-      return { ...state, ...action.state, hydrated: true };
+    case 'hydrate': {
+      const next = { ...state, ...action.state, hydrated: true };
+      // Only cars with a real 3D model can be picked now; drop an older saved car that has none.
+      if (next.car && !model3dFor(next.car)) next.car = null;
+      return next;
+    }
     case 'add': {
       // A cart holds items from one place; adding from another place starts a new cart.
       const lines = state.cart.placeId === action.placeId ? state.cart.lines : [];

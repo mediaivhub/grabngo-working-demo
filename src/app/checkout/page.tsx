@@ -3,7 +3,7 @@
 import { Banknote, Check, ChevronRight, Plus, Ticket } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
-import { CarArt } from '@/components/car';
+import { PlateBadge } from '@/components/car';
 import { OrderSummary, PickupInfo, Section, TotalBar } from '@/components/OrderBlocks';
 import { CardLogo, OutlineLogo } from '@/components/CardLogo';
 import { NavHeader, RadioDot } from '@/components/ui';
@@ -105,7 +105,7 @@ export default function CheckoutScreen() {
         <PickupInfo place={place} hideArt={atCar}>
           {atCar && car && (
             <div className="mt-4 flex items-center gap-3 rounded-2xl bg-[#f7f5f2] p-2.5 pr-4">
-              <CarArt car={car} className="w-[92px] shrink-0" />
+              <PlateBadge car={car} className="shrink-0" />
               <p className="text-[14px] leading-[19px]">
                 Curbside · we’ll bring it to your <b className="font-semibold">{carName(car)}</b>
                 <span className="mt-0.5 block text-gray">{plateText(car)}</span>

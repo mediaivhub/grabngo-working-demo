@@ -2,8 +2,7 @@
 
 import { Car as CarIcon, Store } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Car3DSheet, CarStage } from '@/components/car';
+import { CarStage } from '@/components/car';
 import { OrderSummary, PickupInfo, Section, TotalBar } from '@/components/OrderBlocks';
 import { cx, EmptyState, NavHeader, orbs, Price, QtyStepper } from '@/components/ui';
 import { carName, plateText } from '@/lib/car';
@@ -14,7 +13,6 @@ import { useStore } from '@/store/AppStore';
 export default function CartScreen() {
   const router = useRouter();
   const { cart, setQty, user, car, setPickupMode } = useStore();
-  const [show3d, setShow3d] = useState(false);
   const atCar = cart.pickup === 'car';
   const place = getPlace(cart.placeId) ?? getPlace('orfali')!;
   const totals = orderTotals(cart.lines);
@@ -74,7 +72,7 @@ export default function CartScreen() {
           {atCar &&
             (car ? (
               <>
-                <CarStage car={car} onView3D={() => setShow3d(true)} className="-mx-1.5 mt-3.5" />
+                <CarStage car={car} className="-mx-1.5 mt-3.5" />
                 <div className="mt-3 flex items-center gap-2.5 rounded-2xl bg-[#f7f7f7] px-3.5 py-3 text-[14px] leading-[19px]">
                   <span className="min-w-0 flex-1">
                     Staff will bring it to your <b className="font-semibold">{carName(car)}</b>, plate <b className="font-semibold">{plateText(car)}</b>.
@@ -93,7 +91,6 @@ export default function CartScreen() {
         <OrderSummary totals={totals} />
       </div>
       <TotalBar total={totals.total} label="Confirm Pickup" disabled={atCar && !car} onClick={() => router.push(user ? '/checkout' : '/auth/login?next=checkout')} />
-      {show3d && car && <Car3DSheet car={car} onClose={() => setShow3d(false)} />}
     </main>
   );
 }

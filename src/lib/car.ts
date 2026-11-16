@@ -23,8 +23,17 @@ export const COLORS: CarColor[] = [
   { name: 'Beige', hex: '#c9b08a' }, { name: 'Gold', hex: '#b89a62' }, { name: 'Brown', hex: '#5a3d2b' }, { name: 'Matte Black', hex: '#2a2a2c' },
 ];
 
-/** Starting car for the demo / test account (has a 3D model). */
-export const DEMO_CAR: Car = { emirate: 'dubai', code: 'A', number: '12345', make: 'Nissan', model: 'Patrol', body: 'suv', color: COLORS[4] };
+/**
+ * Cars customers can pick: only the ones with a real 3D model ready. Each comes in the colour
+ * it was modelled in. Add a car here (and to MODELS_3D) when a commercially licensed model exists.
+ */
+export const CARS_3D: Pick<Car, 'make' | 'model' | 'body' | 'color'>[] = [
+  { make: 'Nissan', model: 'Patrol', body: 'suv', color: { name: 'Black', hex: '#1c1d20' } },
+  { make: 'Mercedes-Benz', model: 'G 63', body: 'boxy', color: { name: 'Red', hex: '#b51f24' } },
+];
+
+/** Starting car for the demo / test account. */
+export const DEMO_CAR: Car = { emirate: 'dubai', code: 'A', number: '12345', ...CARS_3D[0] };
 
 /**
  * Real 3D models (Sketchfab). Only models whose licence allows commercial use, shown in the
@@ -133,17 +142,8 @@ export function modelsFor(make: string): Promise<CarModel[]> {
 export const plateText = (c: Car) => `${EMIRATES[c.emirate].label} ${c.code} ${c.number || '—'}`;
 export const carName = (c: Car) => (c.color.custom ? `${c.make} ${c.model} (custom colour)` : `${c.color.name} ${c.make} ${c.model}`);
 
-/* ---------------- Drawing ---------------- */
+/* ---------------- Plate ---------------- */
 
-function shade(hex: string, amt: number) {
-  const n = parseInt(hex.slice(1), 16);
-  const f = (v: number) => Math.max(0, Math.min(255, Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt)));
-  return '#' + [f(n >> 16), f((n >> 8) & 255), f(n & 255)].map((v) => v.toString(16).padStart(2, '0')).join('');
-}
-const isLight = (hex: string) => {
-  const n = parseInt(hex.slice(1), 16);
-  return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 150;
-};
 const esc = (s: string) => s.replace(/[^A-Z0-9 ]/gi, '');
 
 /** UAE plate as SVG markup, drawn at (x, y) with size w×h. */
@@ -170,60 +170,3 @@ export function plateSVG(car: Car, x: number, y: number, w: number, h: number) {
 }
 
 export const plateBadgeSVG = (car: Car) => `<svg viewBox="0 0 110 30" width="132" height="36" aria-label="Plate ${esc(plateText(car))}">${plateSVG(car, 2, 2, 106, 26)}</svg>`;
-
-/** Rear view of the car in its paint, with the plate. viewBox 0 0 300 200. `id` keeps gradient ids unique. */
-export function carSVG(car: Car, id: string, { brakes = false } = {}) {
-  const paint = car.color.hex;
-  const hi = shade(paint, 0.35), mid = paint, lo = shade(paint, -0.32), deep = shade(paint, -0.55);
-  const S = {
-    sedan: { roof: 'M92 44 Q150 34 208 44 L232 88 L68 88 Z', body: 'M40 98 Q44 84 68 84 L232 84 Q256 84 260 98 L268 140 Q268 156 252 158 L48 158 Q32 156 32 140 Z', deck: 88, lightY: 104, lightH: 16, plateY: 120, wheelY: 146, wheelH: 34, wide: 1 },
-    suv: { roof: 'M76 22 Q150 14 224 22 L242 84 L58 84 Z', body: 'M34 92 Q36 80 58 80 L242 80 Q264 80 266 92 L272 150 Q272 166 256 168 L44 168 Q28 166 28 150 Z', deck: 84, lightY: 96, lightH: 22, plateY: 124, wheelY: 154, wheelH: 38, wide: 1.05, rails: true },
-    boxy: { roof: 'M70 16 L230 16 L238 84 L62 84 Z', body: 'M34 88 L266 88 L270 152 Q270 168 254 168 L46 168 Q30 168 30 152 Z', deck: 84, lightY: 96, lightH: 30, plateY: 126, wheelY: 154, wheelH: 40, wide: 1.05 },
-    sports: { roof: 'M106 58 Q150 50 194 58 L222 96 L78 96 Z', body: 'M26 110 Q30 94 66 92 L234 92 Q270 94 274 110 L278 142 Q278 156 262 158 L38 158 Q22 156 22 142 Z', deck: 96, lightY: 106, lightH: 10, plateY: 122, wheelY: 144, wheelH: 32, wide: 1.12, spoiler: true, lightbar: true },
-    pickup: { roof: 'M84 26 Q150 18 216 26 L230 70 L70 70 Z', body: 'M34 82 L266 82 L272 150 Q272 166 256 168 L44 168 Q28 166 28 150 Z', deck: 74, lightY: 90, lightH: 34, plateY: 132, wheelY: 154, wheelH: 38, wide: 1.05, tailgate: true },
-  }[car.body] as { roof: string; body: string; deck: number; lightY: number; lightH: number; plateY: number; wheelY: number; wheelH: number; wide: number; rails?: boolean; spoiler?: boolean; lightbar?: boolean; tailgate?: boolean };
-
-  const wheelW = 34 * S.wide;
-  const plateW = 74, plateH = 22;
-  return `<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Rear view of a ${esc(carName(car))}">
-    <defs>
-      <linearGradient id="${id}p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset="0.45" stop-color="${mid}"/><stop offset="1" stop-color="${lo}"/></linearGradient>
-      <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0.28"/><stop offset="0.18" stop-color="#000" stop-opacity="0"/><stop offset="0.82" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.28"/></linearGradient>
-      <linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3c4650"/><stop offset="1" stop-color="#14191e"/></linearGradient>
-      <linearGradient id="${id}l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a52"/><stop offset="1" stop-color="#8f0f12"/></linearGradient>
-      <radialGradient id="${id}glow"><stop offset="0" stop-color="#ff3b30" stop-opacity="0.75"/><stop offset="1" stop-color="#ff3b30" stop-opacity="0"/></radialGradient>
-    </defs>
-    <ellipse cx="150" cy="${S.wheelY + S.wheelH - 2}" rx="${128 * S.wide}" ry="9" fill="#000" opacity="0.22"/>
-    <rect x="${44 - (S.wide - 1) * 40}" y="${S.wheelY}" width="${wheelW}" height="${S.wheelH}" rx="8" fill="#151517"/>
-    <rect x="${256 - wheelW + (S.wide - 1) * 40}" y="${S.wheelY}" width="${wheelW}" height="${S.wheelH}" rx="8" fill="#151517"/>
-    ${S.rails ? `<rect x="88" y="16" width="124" height="5" rx="2.5" fill="${deep}"/>` : ''}
-    <path d="M${S.lightbar ? 58 : 48} ${S.deck - 10} q-16 -2 -18 8 q10 3 20 0 Z" fill="${lo}"/>
-    <path d="M${S.lightbar ? 242 : 252} ${S.deck - 10} q16 -2 18 8 q-10 3 -20 0 Z" fill="${lo}"/>
-    <path d="${S.roof}" fill="url(#${id}p)"/>
-    <path d="${S.roof}" fill="url(#${id}s)"/>
-    <path d="${S.roof}" transform="translate(150 ${S.deck}) scale(0.84 0.78) translate(-150 ${-S.deck})" fill="url(#${id}g)"/>
-    <path d="${S.roof}" transform="translate(150 ${S.deck}) scale(0.84 0.78) translate(-150 ${-S.deck})" fill="none" stroke="${deep}" stroke-width="2.5" opacity="0.6"/>
-    <path d="M106 ${S.deck - 30} L130 ${S.deck - 30} L116 ${S.deck - 6} L94 ${S.deck - 6} Z" fill="#fff" opacity="0.12"/>
-    <path d="M168 ${S.deck - 26} L176 ${S.deck - 26} L168 ${S.deck - 8} L160 ${S.deck - 8} Z" fill="#fff" opacity="0.08"/>
-    <path d="${S.body}" fill="url(#${id}p)"/>
-    <path d="${S.body}" fill="url(#${id}s)"/>
-    <path d="M50 ${S.deck + 6} L250 ${S.deck + 6}" stroke="${hi}" stroke-width="1.5" opacity="0.7"/>
-    ${S.spoiler ? `<path d="M70 ${S.deck - 2} L230 ${S.deck - 2} L236 ${S.deck + 4} L64 ${S.deck + 4} Z" fill="${deep}"/>` : ''}
-    ${S.tailgate ? `<rect x="50" y="${S.deck + 10}" width="200" height="${S.plateY - S.deck - 14}" rx="4" fill="none" stroke="${lo}" stroke-width="1.5"/><rect x="138" y="${S.deck + 16}" width="24" height="6" rx="3" fill="${deep}"/>` : ''}
-    ${S.lightbar
-      ? `<rect x="58" y="${S.lightY}" width="184" height="${S.lightH * 0.5}" rx="3" fill="url(#${id}l)"/>`
-      : `<rect x="${S.tailgate ? 36 : 48}" y="${S.lightY}" width="${S.tailgate ? 14 : 46}" height="${S.lightH}" rx="5" fill="url(#${id}l)"/>
-         <rect x="${S.tailgate ? 250 : 206}" y="${S.lightY}" width="${S.tailgate ? 14 : 46}" height="${S.lightH}" rx="5" fill="url(#${id}l)"/>`}
-    <g opacity="${brakes ? 1 : 0}" style="transition:opacity .25s">
-      <ellipse cx="72" cy="${S.lightY + S.lightH / 2}" rx="46" ry="24" fill="url(#${id}glow)"/>
-      <ellipse cx="228" cy="${S.lightY + S.lightH / 2}" rx="46" ry="24" fill="url(#${id}glow)"/>
-      <rect x="128" y="${S.deck - 4}" width="44" height="3" rx="1.5" fill="#ff3b30"/>
-    </g>
-    <path d="M60 ${S.deck + 12} Q150 ${S.deck + 4} 240 ${S.deck + 12}" stroke="#fff" stroke-width="3" fill="none" opacity="${isLight(paint) ? 0.55 : 0.18}"/>
-    <circle cx="150" cy="${S.lightY + S.lightH / 2 - 2}" r="5" fill="none" stroke="${isLight(paint) ? '#9aa0a6' : '#d5d8db'}" stroke-width="1.6"/>
-    <rect x="${150 - plateW / 2 - 5}" y="${S.plateY - 4}" width="${plateW + 10}" height="${plateH + 8}" rx="5" fill="${deep}" opacity="0.55"/>
-    ${plateSVG(car, 150 - plateW / 2, S.plateY, plateW, plateH)}
-    <path d="M${40 - (S.wide - 1) * 30} ${S.plateY + plateH + 8} L${260 + (S.wide - 1) * 30} ${S.plateY + plateH + 8}" stroke="${deep}" stroke-width="5" stroke-linecap="round" opacity="0.8"/>
-    ${car.body === 'sports' ? `<circle cx="112" cy="${S.plateY + plateH + 9}" r="5" fill="#2a2a2a" stroke="#888" stroke-width="1.4"/><circle cx="188" cy="${S.plateY + plateH + 9}" r="5" fill="#2a2a2a" stroke="#888" stroke-width="1.4"/>` : ''}
-  </svg>`;
-}

@@ -1,10 +1,10 @@
 'use client';
 
 import { Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Car3DSheet, CarStage } from '@/components/car';
+import { useState } from 'react';
+import { CarStage } from '@/components/car';
 import { Button, cx, NavHeader, useGoBack } from '@/components/ui';
-import { type Car, type CarModel, carName, COLORS, DEMO_CAR, EMIRATES, type EmirateId, MAKES, model3dFor, modelsFor, plateText, POPULAR } from '@/lib/car';
+import { type Car, carName, CARS_3D, DEMO_CAR, EMIRATES, type EmirateId, model3dFor, plateText } from '@/lib/car';
 import { useStore } from '@/store/AppStore';
 
 export default function MyCarScreen() {
@@ -29,29 +29,7 @@ function CarForm({ initial }: { initial: Car | null }) {
   const back = useGoBack('/profile');
   const { setCar } = useStore();
   const [car, setDraft] = useState<Car>(initial ?? DEMO_CAR);
-  const [models, setModels] = useState<CarModel[] | null>(null);
-  const [show3d, setShow3d] = useState(false);
-  const [customHex, setCustomHex] = useState(car.color.custom ? car.color.hex : '#7a4fd1');
   const set = (patch: Partial<Car>) => setDraft((c) => ({ ...c, ...patch }));
-
-  // Load the models for the chosen make; keep the current model if it's in the list.
-  useEffect(() => {
-    let live = true;
-    modelsFor(car.make).then((list) => {
-      if (!live) return;
-      setModels(list);
-      setDraft((c) => {
-        if (c.make !== car.make) return c;
-        const names = list.map((m) => m.name);
-        const name = [c.model, POPULAR[c.make], names[0]].find((n) => n && names.includes(n)) ?? names[0];
-        const body = list.find((m) => m.name === name)?.body ?? c.body;
-        return name === c.model && body === c.body ? c : { ...c, model: name, body };
-      });
-    });
-    return () => {
-      live = false;
-    };
-  }, [car.make]);
 
   const plateOk = car.code.length > 0 && car.number.length >= 1;
   const save = () => {
@@ -65,13 +43,30 @@ function CarForm({ initial }: { initial: Car | null }) {
         <div className="rounded-b-[30px] bg-white px-5 pb-5">
           <NavHeader title="My Car" fallback="/profile" className="-mx-5" />
           <p className="text-[14px] leading-5 text-gray">For curbside pickup. Staff use your plate, make and colour to find your car.</p>
-          <CarStage car={car} onView3D={() => setShow3d(true)} className="-mx-1.5 mt-3.5" />
-          {model3dFor(car) ? (
-            <p className="mt-1.5 text-right text-[11px] text-gray">Real 3D model available for this car</p>
-          ) : (
-            <p className="mt-1.5 text-right text-[11px] text-gray">3D view: Nissan Patrol and Mercedes G 63</p>
-          )}
-
+          <p className="mb-2 mt-4 text-[13px] font-medium text-gray">Choose your car</p>
+          <div role="radiogroup" aria-label="Car" className="grid grid-cols-2 gap-2">
+            {CARS_3D.map((c) => {
+              const on = c.make === car.make && c.model === car.model;
+              return (
+                <button
+                  key={`${c.make}|${c.model}`}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => set(c)}
+                  className={cx('rounded-2xl border-[1.5px] p-3 text-left transition', on ? 'border-ink bg-white' : 'border-transparent bg-field')}>
+                  <span className="block text-[12px] text-gray">{c.make}</span>
+                  <span className="mt-0.5 block text-[16px] font-semibold">{c.model}</span>
+                  <span className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray">
+                    <span className="h-2.5 w-2.5 rounded-full border border-black/15" style={{ background: c.color.hex }} />
+                    {c.color.name} · 3D
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <CarStage car={car} className="-mx-1.5 mt-3" />
+          <p className="mt-1.5 text-right text-[11px] text-gray">Real 3D model · more cars coming soon</p>
           <p className="mb-2 mt-4 text-[13px] font-medium text-gray">Plate</p>
           <div className="flex gap-2">
             <select
@@ -106,61 +101,6 @@ function CarForm({ initial }: { initial: Car | null }) {
             />
           </div>
 
-          <p className="mb-2 mt-4 text-[13px] font-medium text-gray">Car{models ? ` · ${models.length} models` : ''}</p>
-          <div className="flex gap-2">
-            <select aria-label="Make" value={car.make} onChange={(e) => { setModels(null); set({ make: e.target.value }); }} className={fieldCls} style={selectBg}>
-              {Object.keys(MAKES).map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </select>
-            <select
-              aria-label="Model"
-              value={car.model}
-              disabled={!models}
-              onChange={(e) => set({ model: e.target.value, body: models?.find((m) => m.name === e.target.value)?.body ?? car.body })}
-              className={fieldCls}
-              style={selectBg}>
-              {models ? models.map((m) => <option key={m.name}>{m.name}</option>) : <option>{car.model || 'Loading models…'}</option>}
-            </select>
-          </div>
-
-          <p className="mb-2 mt-4 text-[13px] font-medium text-gray">
-            Colour · <span className="text-ink">{car.color.custom ? `Custom ${car.color.hex.toUpperCase()}` : car.color.name}</span>
-          </p>
-          <div role="radiogroup" aria-label="Colour" className="flex flex-wrap gap-2.5">
-            {COLORS.map((c) => {
-              const on = !car.color.custom && car.color.name === c.name;
-              return (
-                <button
-                  key={c.name}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  aria-label={c.name}
-                  title={c.name}
-                  onClick={() => set({ color: c })}
-                  className={cx('h-[34px] w-[34px] rounded-full border-2 border-white transition-transform', on ? 'scale-105 shadow-[0_0_0_2px_var(--color-ink)]' : 'shadow-[0_0_0_1px_var(--color-divider)]')}
-                  style={{ background: c.hex }}
-                />
-              );
-            })}
-            <label
-              title="Custom colour"
-              aria-label="Custom colour"
-              className={cx('relative h-[34px] w-[34px] overflow-hidden rounded-full border-2 border-white', car.color.custom ? 'scale-105 shadow-[0_0_0_2px_var(--color-ink)]' : 'shadow-[0_0_0_1px_var(--color-divider)]')}
-              style={{ background: car.color.custom ? car.color.hex : 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)' }}>
-              <input
-                type="color"
-                value={customHex}
-                onChange={(e) => {
-                  setCustomHex(e.target.value);
-                  set({ color: { name: 'Custom', hex: e.target.value, custom: true } });
-                }}
-                className="absolute -inset-2 h-[50px] w-[50px] cursor-pointer opacity-0"
-              />
-            </label>
-          </div>
-
           <div className="mt-4 flex items-center gap-2.5 rounded-2xl bg-[#f7f7f7] px-3.5 py-3 text-[14px] leading-[19px]">
             <span className="text-[20px]">🚘</span>
             <span>
@@ -181,11 +121,10 @@ function CarForm({ initial }: { initial: Car | null }) {
         </div>
       </div>
       <div className="bg-surface px-5 pt-3">
-        <Button disabled={!plateOk || !models} onClick={save}>
+        <Button disabled={!plateOk || !model3dFor(car)} onClick={save}>
           Save Car
         </Button>
       </div>
-      {show3d && <Car3DSheet car={car} onClose={() => setShow3d(false)} />}
     </>
   );
 }
