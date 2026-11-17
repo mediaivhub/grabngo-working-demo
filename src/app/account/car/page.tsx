@@ -83,18 +83,6 @@ function CarForm({ initial }: { initial: Car | null }) {
           </div>
         </div>
 
-        {/* Paint: one line, the rest behind + */}
-        <section className="mt-1.5 rounded-[30px] bg-white px-5 pb-4 pt-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[19px] font-bold">Paint</h2>
-            <span className="flex items-center gap-1.5 text-[13px] font-medium text-gray">
-              <span className="h-2.5 w-2.5 rounded-full border border-black/10" style={{ background: car.color.hex }} />
-              {car.color.name}
-            </span>
-          </div>
-          <div className="mt-3">{paintRow}</div>
-        </section>
-
         {/* Plate */}
         <section className="mt-1.5 rounded-[30px] bg-white px-5 pb-5 pt-4">
           <h2 className="text-[19px] font-bold">Plate</h2>
@@ -206,32 +194,54 @@ function Stage({ car, splash, onSplashEnd, expanded, onExpand, paintBar }: { car
   }, [expanded, onExpand]);
   if (!model) return null;
   const round = 'grid h-10 w-10 place-items-center rounded-full bg-white/90 text-ink shadow-md backdrop-blur active:scale-90';
+  const bg = tintedBackground([0.955, 0.948, 0.937], car.color.hex, 0.08);
+  const bgCss = `rgb(${bg.map((v) => Math.round(v * 255)).join(',')})`;
+  const FADE = 96; // px at the bottom where the stage melts into the page
   return (
     // Placeholder keeps the page from jumping while the stage is full screen.
-    <div className="mt-1 h-[340px]">
+    <div className="-mx-5 mt-1 h-[440px]">
       <div
         className={cx(
-          'overflow-hidden overflow-clip bg-[#f1efec] transition-[border-radius] duration-300',
+          'overflow-hidden overflow-clip transition-[border-radius] duration-300',
           // Same element either way, so the 3D model never reloads.
-          expanded ? 'showroom-open absolute inset-0 z-50 rounded-none' : 'relative h-[340px] rounded-[28px]',
-        )}>
-        <Car3DView key={model.uid} car={car} background={tintedBackground([0.955, 0.948, 0.937], car.color.hex, 0.08)} controls={controls} intro plateClass={expanded ? 'bottom-[calc(var(--safe-bottom)+112px)]' : undefined} />
-        {/* spotlight + floor glow in the paint colour (over the car, never blocking touches) */}
-        <span className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_70%_45%_at_50%_0%,rgba(255,255,255,0.7),transparent_70%)]" />
-        <span
-          className={cx('pointer-events-none absolute inset-x-0 bottom-0 z-[1] transition-[background] duration-700', expanded ? 'h-56' : 'h-28')}
-          style={{ background: `radial-gradient(ellipse 70% 75% at 50% 100%, ${car.color.hex}30, transparent 78%)` }}
-        />
+          expanded ? 'showroom-open absolute inset-0 z-50 rounded-none' : 'relative h-[440px] rounded-t-[28px]',
+        )}
+        style={{ background: expanded ? bgCss : 'transparent' }}>
+        {/* The 3D area; in the page it stops where the fade begins (its logo stays visible above it). */}
+        <div className="absolute inset-x-0 top-0" style={{ bottom: expanded ? 0 : FADE }}>
+          <Car3DView key={model.uid} car={car} background={bg} controls={controls} intro plateClass={expanded ? 'bottom-[calc(var(--safe-bottom)+112px)]' : 'bottom-3'} />
+          {/* spotlight + floor glow in the paint colour (over the car, never blocking touches) */}
+          <span className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_70%_45%_at_50%_0%,rgba(255,255,255,0.7),transparent_70%)]" />
+          <span
+            className={cx('pointer-events-none absolute inset-x-0 bottom-0 z-[1] transition-[background] duration-700', expanded ? 'h-56' : 'h-24')}
+            style={{ background: `radial-gradient(ellipse 70% 75% at 50% 100%, ${car.color.hex}26, transparent 78%)` }}
+          />
+          <span className="showroom-sweep pointer-events-none absolute inset-0 z-[2]" />
+          {/* Blend the model's own backdrop into the fade (leaving the viewer's logo corner uncovered) */}
+          {!expanded && (
+            <span
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-20 transition-[background] duration-700"
+              style={{
+                background: `linear-gradient(to bottom, transparent, ${bgCss})`,
+                maskImage: 'linear-gradient(to right, transparent 0, transparent 54px, #000 80px)',
+                WebkitMaskImage: 'linear-gradient(to right, transparent 0, transparent 54px, #000 80px)',
+              }}
+            />
+          )}
+        </div>
+        {/* Fade: the stage colour melts into the white page */}
+        {!expanded && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 transition-[background] duration-700" style={{ height: FADE, background: `linear-gradient(to bottom, ${bgCss}, #ffffff)` }} />
+        )}
         {splash && (
           <span
             key={splash.id}
             onAnimationEnd={onSplashEnd}
             className="paint-splash pointer-events-none absolute z-[3] h-[460px] w-[460px] rounded-full"
-            style={{ left: `calc(${splash.x}% - 230px)`, top: expanded ? 'calc(100% - 330px)' : 'calc(100% - 230px)', background: `radial-gradient(circle, ${splash.hex}cc 0%, ${splash.hex}55 45%, ${splash.hex}00 70%)` }}
+            style={{ left: `calc(${splash.x}% - 230px)`, top: expanded ? 'calc(100% - 330px)' : 'calc(100% - 290px)', background: `radial-gradient(circle, ${splash.hex}aa 0%, ${splash.hex}44 45%, ${splash.hex}00 70%)` }}
           />
         )}
-        <span className="showroom-sweep pointer-events-none absolute inset-0 z-[2]" />
-        <div key={`${car.make}|${car.model}|${expanded}`} className={cx('pointer-events-none absolute left-4 z-[2] text-ink', expanded ? 'top-[calc(var(--safe-top)+16px)]' : 'top-4')}>
+        <div key={`${car.make}|${car.model}|${expanded}`} className={cx('pointer-events-none absolute left-5 z-[2] text-ink', expanded ? 'top-[calc(var(--safe-top)+16px)]' : 'top-4')}>
           <p className="rise-in text-[12px] font-semibold uppercase tracking-[0.18em] text-gray">{car.make}</p>
           <h1 className={cx('rise-in font-bold tracking-tight [animation-delay:120ms]', expanded ? 'text-[34px] leading-10' : 'text-[28px] leading-8')}>{car.model}</h1>
           {expanded && <p className="rise-in mt-1 text-[14px] text-gray [animation-delay:220ms]">{car.color.name} · drag to rotate</p>}
@@ -241,19 +251,26 @@ function Stage({ car, splash, onSplashEnd, expanded, onExpand, paintBar }: { car
             <X size={19} />
           </button>
         ) : (
-          <button type="button" aria-label="Full screen" onClick={() => onExpand(true)} className={cx(round, 'absolute right-3 top-3 z-[2] h-9 w-9')}>
+          <button type="button" aria-label="Full screen" onClick={() => onExpand(true)} className={cx(round, 'absolute right-4 top-3.5 z-[2] h-9 w-9')}>
             <Maximize2 size={16} />
           </button>
         )}
-        <div className={cx('absolute left-3 right-3 z-[2] flex justify-between', expanded ? 'bottom-[calc(var(--safe-bottom)+108px)]' : 'bottom-3')}>
-          <button type="button" aria-label="Rotate left" onClick={() => controls.current?.rotate(-60)} className={round}>
-            <RotateCcw size={18} />
-          </button>
-          <button type="button" aria-label="Rotate right" onClick={() => controls.current?.rotate(60)} className={round}>
-            <RotateCw size={18} />
-          </button>
+        {/* Rotate arrows at the middle of each side */}
+        <button type="button" aria-label="Rotate left" onClick={() => controls.current?.rotate(-60)} className={cx(round, 'absolute left-3 z-[2]')} style={{ top: expanded ? '50%' : `calc((100% - ${FADE}px) / 2)` }}>
+          <RotateCcw size={18} />
+        </button>
+        <button type="button" aria-label="Rotate right" onClick={() => controls.current?.rotate(60)} className={cx(round, 'absolute right-3 z-[2]')} style={{ top: expanded ? '50%' : `calc((100% - ${FADE}px) / 2)` }}>
+          <RotateCw size={18} />
+        </button>
+        {/* Paint chips: on the fade in the page, in a frosted bar full screen */}
+        <div
+          className={cx(
+            'rise-in absolute z-[2] [animation-delay:200ms]',
+            expanded ? 'inset-x-3 bottom-[calc(var(--safe-bottom)+14px)] rounded-[24px] bg-white/85 px-4 py-3.5 shadow-lg backdrop-blur-md' : 'inset-x-5 bottom-3',
+          )}>
+          {!expanded && <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-gray">Paint · <span className="text-ink">{car.color.name}</span></p>}
+          {paintBar}
         </div>
-        {expanded && <div className="rise-in absolute inset-x-3 bottom-[calc(var(--safe-bottom)+14px)] z-[2] rounded-[26px] bg-white/85 px-4 py-3.5 shadow-lg backdrop-blur-md [animation-delay:200ms]">{paintBar}</div>}
       </div>
     </div>
   );
