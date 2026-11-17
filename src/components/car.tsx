@@ -62,6 +62,17 @@ function loadSketchfab() {
   return sdk;
 }
 
+/** Loads the 3D viewer library in the background once the app is idle, so cars appear faster. */
+export function Warm3D() {
+  useEffect(() => {
+    const go = () => void loadSketchfab().catch(() => {});
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(go);
+    else setTimeout(go, 1500);
+  }, []);
+  return null;
+}
+
 /** sRGB hex → the linear RGB the 3D viewer's materials use. */
 function hexToLinear(hex: string) {
   return [1, 3, 5].map((i) => {
@@ -121,7 +132,7 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
         if (cancelled || !frame.current || !window.Sketchfab) return;
         new window.Sketchfab(frame.current).init(model.uid, {
           // No wheel / double-click zoom: scrolling the page must never zoom the car. Drag still rotates.
-          autostart: 1, autospin: 0.25, preload: 1, dnt: 1, transparent: 0, scrollwheel: 0, double_click: 0,
+          autostart: 1, autospin: 0.25, preload: 0, max_texture_size: 1024, dnt: 1, transparent: 0, scrollwheel: 0, double_click: 0,
           ui_infos: 0, ui_controls: 0, ui_stop: 0, ui_watermark: 0, ui_watermark_link: 0, ui_hint: 0,
           ui_inspector: 0, ui_settings: 0, ui_vr: 0, ui_ar: 0, ui_fullscreen: 0, ui_annotations: 0, ui_help: 0, ui_loading: 0,
           success(api: SketchfabApi) {
@@ -180,9 +191,15 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
         allow="autoplay; fullscreen; xr-spatial-tracking"
         className={cx('absolute inset-0 h-full w-full border-0 transition-opacity duration-500', state === 'ready' ? 'opacity-100' : 'opacity-0')}
       />
-      {state === 'loading' && (
-        <span className={cx('pointer-events-none absolute inset-0 grid place-items-center text-[13px]', dark ? 'text-white/60' : 'text-gray')}>Loading your car…</span>
-      )}
+      {state === 'loading' &&
+        (model.thumb ? (
+          // The car's photo shows instantly while the 3D model loads behind it.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={model.thumb} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <span className={cx('pointer-events-none absolute inset-0 grid place-items-center text-[13px]', dark ? 'text-white/60' : 'text-gray')}>Loading your car…</span>
+        ))}
+      {state === 'loading' && <span className="pointer-events-none absolute bottom-12 left-1/2 z-[2] h-1 w-16 -translate-x-1/2 overflow-hidden rounded-full bg-black/10"><span className="block h-full w-1/2 animate-[load-slide_1s_ease-in-out_infinite] rounded-full bg-black/40" /></span>}
       <PlateBadge car={car} className="pointer-events-none absolute bottom-2.5 left-1/2 z-[2] -translate-x-1/2 drop-shadow-md" />
     </>
   );

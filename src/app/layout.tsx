@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { Warm3D } from '@/components/car';
 import { DeviceFrame } from '@/components/DeviceFrame';
 import { AppStoreProvider } from '@/store/AppStore';
 import './globals.css';
@@ -22,7 +23,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        {/* The 3D cars load from Sketchfab: open those connections early. */}
+        <link rel="preconnect" href="https://sketchfab.com" />
+        <link rel="preconnect" href="https://static.sketchfab.com" />
+        <link rel="preconnect" href="https://media.sketchfab.com" crossOrigin="" />
+      </head>
       <body>
+        <Warm3D />
         <DeviceFrame>
           <AppStoreProvider>{children}</AppStoreProvider>
         </DeviceFrame>

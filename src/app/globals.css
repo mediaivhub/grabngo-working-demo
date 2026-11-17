@@ -260,3 +260,8 @@ input {
 @media (prefers-reduced-motion: reduce) {
   .car-pop { animation: none; }
 }
+
+@keyframes load-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
