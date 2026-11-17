@@ -24,27 +24,43 @@ export const COLORS: CarColor[] = [
 ];
 
 /**
- * Cars customers can pick: only the ones with a real 3D model ready. Each comes in the colour
- * it was modelled in. Add a car here (and to MODELS_3D) when a commercially licensed model exists.
+ * Real 3D models (Sketchfab), each released by its author under CC BY 4.0, which allows
+ * commercial use with credit (credits: Profile > Privacy & Security > Acknowledgements).
+ * `paint` matches the model's body-paint material(s) so the colour can be changed live;
+ * `color` is the colour it was modelled in (shown without repainting).
+ * NOTE: licences on Sketchfab are declared by the uploader. Before launch, confirm each model is
+ * the uploader's own work (some material names suggest game-mod origins: G 63, GLS, Maybach GLS).
  */
-export const CARS_3D: Pick<Car, 'make' | 'model' | 'body' | 'color'>[] = [
-  { make: 'Nissan', model: 'Patrol', body: 'suv', color: { name: 'Black', hex: '#1c1d20' } },
-  { make: 'Mercedes-Benz', model: 'G 63', body: 'boxy', color: { name: 'Red', hex: '#b51f24' } },
+export type Model3D = { make: string; model: string; body: BodyStyle; uid: string; paint: string; color: string; title: string; author: string; license: string };
+const M = (make: string, model: string, body: BodyStyle, uid: string, paint: string, color: string, title: string, author: string): Model3D =>
+  ({ make, model, body, uid, paint, color, title, author, license: 'CC BY' });
+
+export const MODELS_3D_LIST: Model3D[] = [
+  M('Cadillac', 'Escalade', 'suv', '8330bdf5cbaf4e25a9031990ca8621de', 'Radiant_Silver', 'Red', '2021 Cadillac Escalade', 'David_Holiday'),
+  M('Chevrolet', 'Tahoe', 'suv', 'a11d407e141b4a88b2a424060075e357', '^Paint$', 'Red', 'Chevrolet Tahoe 2007', 'David_Holiday'),
+  M('Ford', 'F-150 Raptor', 'pickup', '096aa1ba46984eeeb196b75f4d213a0a', 'F-150 Paint', 'Blue', '2018 Ford F-150 Raptor', 'adrianaflak09'),
+  M('Ford', 'Mustang Shelby GT500', 'sports', '0eaa7a16796540f29461ddae05ecdeb3', '^carpaint$', 'Navy', 'Ford Mustang Shelby GT500', 'saitoyang'),
+  M('Land Rover', 'Defender 110', 'boxy', '26f042fcf1594890a529bfb41f0fae0d', '2020body_', 'White', '2021 Land Rover Defender 110', 'David_Holiday'),
+  M('Lexus', 'LX 600', 'suv', '3780684a306b4549af6a258036d7ab27', '^(car_)?paint$', 'Black', 'Lexus LX 600', 'KINGSLEY_king'),
+  M('Mercedes-Benz', 'G 63', 'boxy', 'e5e2a1d2238048a1a494b3df983c16bb', '^bodypaint$', 'Red', 'Mercedes-Benz G63 AMG', 'Black Snow'),
+  M('Mercedes-Benz', 'GLS', 'suv', '6f8ad7f1624e42c58b4e9525cc45c8be', 'gls_paint|vehicle_paint', 'White', 'Mercedes-Benz GLS', 'BlackSnow02'),
+  M('Mercedes-Benz', 'Maybach GLS 600', 'suv', '34c4687ba8204efaa7551afea9f5689f', 'gls_paint|vehicle_paint', 'Silver', 'Mercedes-Maybach GLS 600', 'BlackSnow02'),
+  M('Mercedes-Benz', 'S-Class', 'sedan', 'f42d9d13b0404b5b9a2302a4c590a94d', '^sw222_paint$', 'Silver', 'Mercedes-Benz S65 W222', 'BlackSnow02'),
+  M('Nissan', 'Altima', 'sedan', 'db60e37c748e4b3caee78848806026eb', '^carpaint$', 'Black', 'Nissan Altima 2017', 'I95XP'),
+  M('Nissan', 'Patrol', 'suv', '37096fa8cdfe4756b42a4b80e2315d67', '^body$', 'Black', 'Nissan Patrol Y62', 'Nieve5677'),
+  M('Porsche', '911', 'sports', '877b1bc1739f4a2bb65d62fd7ffd9f75', '^body_main$', 'Grey', 'Porsche 911 with interior', 'n.brizitskaya'),
+  M('Porsche', 'Cayenne', 'suv', 'd1fd357faf314607afc39a67d5b4f4f1', 'RedMain', 'Red', 'Porsche Cayenne GTS 2020', 'Car2022'),
+  M('Toyota', 'Camry', 'sedan', '236a5a6e2fa6420fbdf641f4800cd544', '^Paint_Color$', 'White', 'Toyota Camry 2020', 'ItsDiyor'),
 ];
+export const MODELS_3D: Record<string, Model3D> = Object.fromEntries(MODELS_3D_LIST.map((m) => [`${m.make}|${m.model}`, m]));
+export const model3dFor = (car: Pick<Car, 'make' | 'model'>) => MODELS_3D[`${car.make}|${car.model}`];
+const colorNamed = (name: string) => COLORS.find((c) => c.name === name) ?? COLORS[0];
+
+/** Cars customers can pick: only the ones with a real 3D model, starting in their modelled colour. */
+export const CARS_3D: Pick<Car, 'make' | 'model' | 'body' | 'color'>[] = MODELS_3D_LIST.map((m) => ({ make: m.make, model: m.model, body: m.body, color: colorNamed(m.color) }));
 
 /** Starting car for the demo / test account. */
-export const DEMO_CAR: Car = { emirate: 'dubai', code: 'A', number: '12345', ...CARS_3D[0] };
-
-/**
- * Real 3D models (Sketchfab). Only models whose licence allows commercial use, shown in the
- * colour they were modelled in. The licences require crediting the author.
- */
-export type Model3D = { uid: string; color: string; title: string; author: string; license: string };
-export const MODELS_3D: Record<string, Model3D> = {
-  'Nissan|Patrol': { uid: '37096fa8cdfe4756b42a4b80e2315d67', color: 'Black', title: 'Nissan Patrol Y62', author: 'Nieve5677', license: 'CC BY' },
-  'Mercedes-Benz|G 63': { uid: 'e5e2a1d2238048a1a494b3df983c16bb', color: 'Red', title: 'Mercedes-Benz G63 AMG', author: 'Black Snow', license: 'CC BY' },
-};
-export const model3dFor = (car: Pick<Car, 'make' | 'model'>) => MODELS_3D[`${car.make}|${car.model}`];
+export const DEMO_CAR: Car = { emirate: 'dubai', code: 'A', number: '12345', ...CARS_3D.find((c) => c.model === 'Patrol')! };
 
 // Display name → name in vPIC (null = not in vPIC; models come from GCC_MODELS only).
 export const MAKES: Record<string, string | null> = {

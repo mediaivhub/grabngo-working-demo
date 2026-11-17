@@ -33,7 +33,11 @@ type SketchfabApi = {
   focusOnVisibleGeometries: (cb: () => void) => void;
   getCameraLookAt: (cb: (err: unknown, cam: { position: number[]; target: number[] }) => void) => void;
   setCameraLookAt: (pos: number[], target: number[], duration: number) => void;
+  getMaterialList: (cb: (err: unknown, materials: SketchfabMaterial[]) => void) => void;
+  setMaterial: (material: SketchfabMaterial, cb?: () => void) => void;
 };
+type SketchfabChannel = { color?: number[]; factor?: number; texture?: unknown; enable?: boolean };
+type SketchfabMaterial = { name: string; channels: Record<string, SketchfabChannel> };
 type SketchfabClient = { init: (uid: string, opts: Record<string, unknown>) => void };
 declare global {
   interface Window {
@@ -58,6 +62,15 @@ function loadSketchfab() {
   return sdk;
 }
 
+/** sRGB hex → the linear RGB the 3D viewer's materials use. */
+function hexToLinear(hex: string) {
+  return [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+}
+const PAINT_CHANNELS = ['AlbedoPBR', 'DiffuseColor', 'DiffusePBR'];
+
 /**
  * The real 3D model of the car, filling its parent: slowly turning, drag to rotate, with the
  * customer's plate under it.
@@ -67,6 +80,36 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
   const frame = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const bg = background.join(',');
+  // The live viewer and the paint materials as they were modelled (to restore the original colour).
+  const viewer = useRef<{ api: SketchfabApi; originals: SketchfabMaterial[] } | null>(null);
+  const colorKey = car.color.name === model?.color ? 'original' : car.color.hex;
+  const wanted = useRef(colorKey);
+  useEffect(() => {
+    wanted.current = colorKey;
+  });
+
+  /** Repaint the body to the customer's colour (or back to the modelled colour). */
+  const applyPaint = (key: string) => {
+    const v = viewer.current;
+    if (!v) return;
+    for (const orig of v.originals) {
+      const m: SketchfabMaterial = structuredClone(orig);
+      if (key !== 'original') {
+        for (const ch of PAINT_CHANNELS) {
+          const c = m.channels[ch];
+          if (c) Object.assign(c, { color: hexToLinear(key), factor: 1, texture: undefined });
+        }
+      }
+      v.api.setMaterial(m);
+    }
+  };
+  const applyRef = useRef(applyPaint);
+  useEffect(() => {
+    applyRef.current = applyPaint;
+  });
+  useEffect(() => {
+    applyRef.current(colorKey);
+  }, [colorKey]);
 
   useEffect(() => {
     if (!model) return;
@@ -85,6 +128,12 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
             api.start();
             api.addEventListener('viewerready', () => {
               api.setBackground({ color: bg.split(',').map(Number) });
+              const re = new RegExp(model.paint);
+              api.getMaterialList((err, list) => {
+                if (cancelled || err) return;
+                viewer.current = { api, originals: structuredClone(list.filter((m) => re.test(m.name))) };
+                if (wanted.current !== 'original') applyRef.current(wanted.current);
+              });
               // Frame the whole car once the model's own start camera has settled.
               setTimeout(
                 () =>
@@ -108,6 +157,7 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
     return () => {
       cancelled = true;
       clearTimeout(reveal);
+      viewer.current = null;
     };
   }, [model, bg]);
 

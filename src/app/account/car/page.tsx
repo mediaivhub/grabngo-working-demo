@@ -4,7 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { CarStage } from '@/components/car';
 import { Button, cx, NavHeader, useGoBack } from '@/components/ui';
-import { type Car, carName, CARS_3D, DEMO_CAR, EMIRATES, type EmirateId, model3dFor, plateText } from '@/lib/car';
+import { type Car, carName, CARS_3D, COLORS, DEMO_CAR, EMIRATES, type EmirateId, model3dFor, plateText } from '@/lib/car';
 import { useStore } from '@/store/AppStore';
 
 export default function MyCarScreen() {
@@ -53,14 +53,40 @@ function CarForm({ initial }: { initial: Car | null }) {
             }}
             className={fieldCls}
             style={selectBg}>
-            {CARS_3D.map((c) => (
-              <option key={`${c.make}|${c.model}`} value={`${c.make}|${c.model}`}>
-                {c.make} {c.model} · {c.color.name}
-              </option>
+            {[...new Set(CARS_3D.map((c) => c.make))].map((make) => (
+              <optgroup key={make} label={make}>
+                {CARS_3D.filter((c) => c.make === make).map((c) => (
+                  <option key={c.model} value={`${c.make}|${c.model}`}>
+                    {c.make} {c.model}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <CarStage car={car} className="-mx-1.5 mt-3" />
-          <p className="mt-1.5 text-right text-[11px] text-gray">Real 3D model · more cars coming soon</p>
+          <p className="mt-1.5 text-right text-[11px] text-gray">Drag to rotate · {CARS_3D.length} cars in 3D</p>
+
+          <p className="mb-2 mt-3 text-[13px] font-medium text-gray">
+            Colour · <span className="text-ink">{car.color.name}</span>
+          </p>
+          <div role="radiogroup" aria-label="Colour" className="flex flex-wrap gap-2.5">
+            {COLORS.map((c) => {
+              const on = car.color.name === c.name;
+              return (
+                <button
+                  key={c.name}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  aria-label={c.name}
+                  title={c.name}
+                  onClick={() => set({ color: c })}
+                  className={cx('h-[34px] w-[34px] rounded-full border-2 border-white transition-transform', on ? 'scale-105 shadow-[0_0_0_2px_var(--color-ink)]' : 'shadow-[0_0_0_1px_var(--color-divider)]')}
+                  style={{ background: c.hex }}
+                />
+              );
+            })}
+          </div>
           <p className="mb-2 mt-4 text-[13px] font-medium text-gray">Plate</p>
           <div className="flex gap-2">
             <select
