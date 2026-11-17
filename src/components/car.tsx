@@ -134,13 +134,6 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
         <span className={cx('pointer-events-none absolute inset-0 grid place-items-center text-[13px]', dark ? 'text-white/60' : 'text-gray')}>Loading your car…</span>
       )}
       <PlateBadge car={car} className="pointer-events-none absolute bottom-2.5 left-1/2 z-[2] -translate-x-1/2 drop-shadow-md" />
-      <a
-        href={`https://sketchfab.com/3d-models/${model.uid}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cx('absolute bottom-1 right-2 z-[2] text-[9px]', dark ? 'text-white/45' : 'text-black/35')}>
-        3D: {model.author} · {model.license}
-      </a>
     </>
   );
 }

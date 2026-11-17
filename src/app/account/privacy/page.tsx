@@ -4,6 +4,7 @@ import { Activity, Clock, CreditCard, Navigation, SlidersHorizontal, Sparkles, U
 import { alwaysOn, SettingsRow, SettingsSection } from '@/components/settings';
 import { NavHeader } from '@/components/ui';
 import { requestLocation } from '@/lib/permissions';
+import { MODELS_3D } from '@/lib/car';
 import { useStore } from '@/store/AppStore';
 
 export default function PrivacyScreen() {
@@ -38,6 +39,20 @@ export default function PrivacyScreen() {
         <SettingsSection title="Communication preferences" collapsible>
           <SettingsRow first Icon={SlidersHorizontal} title="Marketing emails" {...toggle('marketingEmails')} />
           <SettingsRow Icon={CreditCard} title="Email receipts" subtitle="Get a receipt for every order" {...toggle('emailReceipts')} />
+        </SettingsSection>
+        <SettingsSection title="Acknowledgements" collapsible>
+          {/* Credits required by the CC BY licences of the 3D car models (kept out of the ordering screens). */}
+          <div className="pb-4 pt-1 text-[13px] leading-5 text-gray">
+            <p className="mb-1.5">3D car models used under Creative Commons Attribution (CC BY 4.0):</p>
+            {Object.values(MODELS_3D).map((m) => (
+              <p key={m.uid}>
+                <a href={`https://sketchfab.com/3d-models/${m.uid}`} target="_blank" rel="noopener noreferrer" className="underline">
+                  {m.title}
+                </a>{' '}
+                by {m.author}
+              </p>
+            ))}
+          </div>
         </SettingsSection>
       </div>
     </main>
