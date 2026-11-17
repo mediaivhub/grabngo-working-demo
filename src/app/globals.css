@@ -268,3 +268,20 @@ input {
 
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* My Car: a splash of the new paint washes over the car. */
+@keyframes paint-splash {
+  from { transform: scale(0.1); opacity: 0.9; }
+  60% { opacity: 0.55; }
+  to { transform: scale(1.6); opacity: 0; }
+}
+.paint-splash { animation: paint-splash 0.75s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+@keyframes pop-in {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.pop-in { animation: pop-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .paint-splash, .pop-in { animation: none; opacity: 0; }
+  .pop-in { opacity: 1; }
+}

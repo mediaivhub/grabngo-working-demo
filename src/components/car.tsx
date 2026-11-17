@@ -86,11 +86,25 @@ const PAINT_CHANNELS = ['AlbedoPBR', 'DiffuseColor', 'DiffusePBR'];
  * The real 3D model of the car, filling its parent: slowly turning, drag to rotate, with the
  * customer's plate under it.
  */
-export function Car3DView({ car, background, dark }: { car: Car; background: number[]; dark?: boolean }) {
+export type CarControls = { rotate: (degrees: number) => void };
+
+/** Paint colour blended into the stage background, as 0..1 RGB. */
+export function tintedBackground(base: number[], hex: string, amount: number) {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return base.map((b, i) => Math.round((b * (1 - amount) + c[i] * amount) * 1000) / 1000);
+}
+
+export function Car3DView({ car, background, dark, controls }: { car: Car; background: number[]; dark?: boolean; controls?: { current: CarControls | null } }) {
   const model = model3dFor(car);
   const frame = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const bg = background.join(',');
+  const bgRef = useRef(bg);
+  useEffect(() => {
+    bgRef.current = bg;
+    // Background follows the paint (no reload).
+    viewer.current?.api.setBackground({ color: bg.split(',').map(Number) });
+  }, [bg]);
   // The live viewer and the paint materials as they were modelled (to restore the original colour).
   const viewer = useRef<{ api: SketchfabApi; originals: SketchfabMaterial[] } | null>(null);
   const colorKey = car.color.name === model?.color ? 'original' : car.color.hex;
@@ -138,11 +152,23 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
           success(api: SketchfabApi) {
             api.start();
             api.addEventListener('viewerready', () => {
-              api.setBackground({ color: bg.split(',').map(Number) });
+              api.setBackground({ color: bgRef.current.split(',').map(Number) });
               const re = new RegExp(model.paint);
               api.getMaterialList((err, list) => {
                 if (cancelled || err) return;
                 viewer.current = { api, originals: structuredClone(list.filter((m) => re.test(m.name))) };
+                if (controls)
+                  controls.current = {
+                    // Orbit the camera around the car (the viewer's world is Z-up).
+                    rotate: (deg) =>
+                      api.getCameraLookAt((e, cam) => {
+                        if (e) return;
+                        const a = (deg * Math.PI) / 180;
+                        const [dx, dy] = [cam.position[0] - cam.target[0], cam.position[1] - cam.target[1]];
+                        const pos = [cam.target[0] + dx * Math.cos(a) - dy * Math.sin(a), cam.target[1] + dx * Math.sin(a) + dy * Math.cos(a), cam.position[2]];
+                        api.setCameraLookAt(pos, cam.target, 0.7);
+                      }),
+                  };
                 if (wanted.current !== 'original') applyRef.current(wanted.current);
               });
               // Frame the whole car once the model's own start camera has settled.
@@ -169,8 +195,9 @@ export function Car3DView({ car, background, dark }: { car: Car; background: num
       cancelled = true;
       clearTimeout(reveal);
       viewer.current = null;
+      if (controls) controls.current = null;
     };
-  }, [model, bg]);
+  }, [model, controls]);
 
   if (!model) return null;
   if (state === 'error')
