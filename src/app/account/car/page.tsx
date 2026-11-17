@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, Dices, RotateCcw, RotateCw, Search, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, RotateCcw, RotateCw, Search, Trash2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Car3DView, type CarControls, PlateBadge, tintedBackground } from '@/components/car';
 import { Button, cx, NavHeader, useGoBack } from '@/components/ui';
@@ -31,8 +31,15 @@ function CarForm({ initial }: { initial: Car | null }) {
   const [car, setDraft] = useState<Car>(initial ?? DEMO_CAR);
   const set = (patch: Partial<Car>) => setDraft((c) => ({ ...c, ...patch }));
   const [splash, setSplash] = useState<{ hex: string; id: number; x: number } | null>(null);
+  const [paintOpen, setPaintOpen] = useState(false);
+  // One line: the popular paints, plus the current one if it isn't among them.
+  const quickColors = (() => {
+    const base = ['White', 'Black', 'Silver', 'Grey', 'Blue', 'Red'].map((n) => COLORS.find((c) => c.name === n)!);
+    return base.some((c) => c.name === car.color.name) ? base : [car.color, ...base.slice(0, 5)];
+  })();
   /** Repaint with a splash of the new colour rising from where it was tapped. */
   const pickColor = (c: CarColor, from?: HTMLElement) => {
+    // (splash rises from the tapped chip)
     if (c.name === car.color.name) return;
     const r = from?.getBoundingClientRect();
     const x = r ? Math.min(90, Math.max(10, ((r.left + r.width / 2) / window.innerWidth) * 100)) : 50;
@@ -53,17 +60,6 @@ function CarForm({ initial }: { initial: Car | null }) {
         <div className="rounded-b-[30px] bg-white px-5 pb-6">
           <NavHeader title="My Car" fallback="/profile" className="-mx-5" />
 
-          {/* Hero: name + live 3D */}
-          <div className="mt-1 flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-gray">{car.make}</p>
-              <h1 key={car.model} className="fade-in truncate text-[26px] font-bold leading-8 tracking-tight">{car.model}</h1>
-            </div>
-            <span className="mb-1 flex shrink-0 items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[12px] font-medium">
-              <span className="h-2.5 w-2.5 rounded-full border border-black/10 transition-colors duration-500" style={{ background: car.color.hex }} />
-              {car.color.name}
-            </span>
-          </div>
           <Stage car={car} splash={splash} onSplashEnd={() => setSplash(null)} />
 
           <div className="mt-3">
@@ -71,41 +67,27 @@ function CarForm({ initial }: { initial: Car | null }) {
           </div>
         </div>
 
-        {/* Paint */}
-        <section className="mt-1.5 rounded-[30px] bg-white px-5 pb-5 pt-4">
+        {/* Paint: one line, the rest behind + */}
+        <section className="mt-1.5 rounded-[30px] bg-white px-5 pb-4 pt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-[19px] font-bold">Paint</h2>
+            <span className="flex items-center gap-1.5 text-[13px] font-medium text-gray">
+              <span className="h-2.5 w-2.5 rounded-full border border-black/10" style={{ background: car.color.hex }} />
+              {car.color.name}
+            </span>
+          </div>
+          <div role="radiogroup" aria-label="Paint colour" className="mt-3 flex items-center justify-between">
+            {quickColors.map((c) => (
+              <Chip key={c.name} c={c} on={car.color.name === c.name} onPick={pickColor} />
+            ))}
             <button
               type="button"
-              onClick={() => {
-                const others = COLORS.filter((c) => c.name !== car.color.name);
-                pickColor(others[Math.floor(Math.random() * others.length)]);
-              }}
-              className="flex h-9 items-center gap-1.5 rounded-full bg-surface px-3.5 text-[13px] font-medium active:scale-95">
-              <Dices size={16} /> Surprise me
+              aria-label="More colours"
+              onClick={() => setPaintOpen(true)}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-[1.5px] border-dashed border-gray-light text-gray active:scale-90">
+              <Plus size={20} />
             </button>
           </div>
-          {PAINT_GROUPS.map((g) => (
-            <div key={g.title} className="mt-3.5">
-              <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-gray">{g.title}</p>
-              <div role="radiogroup" aria-label={`${g.title} colours`} className="no-scrollbar -mx-5 flex gap-3 overflow-x-auto px-5 pb-1 pt-1">
-                {g.names.map((name) => {
-                  const c = COLORS.find((x) => x.name === name)!;
-                  const on = car.color.name === c.name;
-                  return (
-                    <button key={c.name} type="button" role="radio" aria-checked={on} aria-label={c.name} onClick={(e) => pickColor(c, e.currentTarget)} className="flex w-[60px] shrink-0 flex-col items-center gap-1.5">
-                      <span
-                        className={cx('relative grid h-[52px] w-[52px] place-items-center rounded-full transition-all duration-300', on ? 'scale-110 shadow-[0_0_0_2.5px_#fff,0_0_0_4.5px_var(--color-ink),0_8px_18px_rgba(0,0,0,0.18)]' : 'shadow-[0_2px_6px_rgba(0,0,0,0.12)] active:scale-95')}
-                        style={{ background: swatchBg(c.name, c.hex) }}>
-                        {on && <Check size={20} strokeWidth={3} className="pop-in" color={isLight(c.hex) ? '#1a1a1a' : '#fff'} />}
-                      </span>
-                      <span className={cx('text-center text-[11px] leading-[13px]', on ? 'font-semibold text-ink' : 'text-gray')}>{c.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
         </section>
 
         {/* Plate */}
@@ -170,15 +152,10 @@ function CarForm({ initial }: { initial: Car | null }) {
           Save Car
         </Button>
       </div>
+      {paintOpen && <PaintSheet value={car.color} onPick={pickColor} onClose={() => setPaintOpen(false)} />}
     </>
   );
 }
-
-const PAINT_GROUPS = [
-  { title: 'Classics', names: ['White', 'Pearl White', 'Silver', 'Grey', 'Black', 'Matte Black'] },
-  { title: 'Bold', names: ['Red', 'Burgundy', 'Orange', 'Yellow', 'Blue', 'Navy', 'Green'] },
-  { title: 'Earth', names: ['Beige', 'Gold', 'Brown'] },
-];
 
 function isLight(hex: string) {
   const n = parseInt(hex.slice(1), 16);
@@ -192,17 +169,40 @@ function swatchBg(name: string, hex: string) {
   return `radial-gradient(circle at 32% 28%, rgba(255,255,255,0.85) 0, rgba(255,255,255,0.25) 18%, rgba(255,255,255,0) 42%)${pearl}, radial-gradient(circle at 70% 85%, rgba(0,0,0,0.28), rgba(0,0,0,0) 55%), ${hex}`;
 }
 
-/** The live 3D stage: tints to the paint, splashes on colour change, and has rotate buttons. */
+/** One glossy paint chip. */
+function Chip({ c, on, onPick, size = 40 }: { c: CarColor; on: boolean; onPick: (c: CarColor, el: HTMLElement) => void; size?: number }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      aria-label={c.name}
+      title={c.name}
+      onClick={(e) => onPick(c, e.currentTarget)}
+      className={cx('grid shrink-0 place-items-center rounded-full transition-all duration-300', on ? 'scale-110 shadow-[0_0_0_2px_#fff,0_0_0_4px_var(--color-ink)]' : 'shadow-[0_2px_5px_rgba(0,0,0,0.15)] active:scale-90')}
+      style={{ width: size, height: size, background: swatchBg(c.name, c.hex) }}>
+      {on && <Check size={size * 0.42} strokeWidth={3} className="pop-in" color={isLight(c.hex) ? '#1a1a1a' : '#fff'} />}
+    </button>
+  );
+}
+
+/**
+ * The showroom: a dark spotlit stage. On open the camera swoops in round the car while its name
+ * slides up; the floor glows in the paint colour, which splashes on every change.
+ */
 function Stage({ car, splash, onSplashEnd }: { car: Car; splash: { hex: string; id: number; x: number } | null; onSplashEnd: () => void }) {
   const model = model3dFor(car);
   const controls = useRef<CarControls | null>(null);
-  const base = [0.937, 0.922, 0.902];
   if (!model) return null;
   return (
-    <div
-      className="relative mt-3 h-[300px] overflow-hidden overflow-clip rounded-[28px] transition-[background] duration-700"
-      style={{ background: `radial-gradient(circle at 50% 75%, ${car.color.hex}40, transparent 70%), #efebe6` }}>
-      <Car3DView key={model.uid} car={car} background={tintedBackground(base, car.color.hex, 0.12)} controls={controls} />
+    <div className="relative mt-1 h-[340px] overflow-hidden overflow-clip rounded-[28px] bg-[#f1efec]">
+      <Car3DView key={model.uid} car={car} background={tintedBackground([0.955, 0.948, 0.937], car.color.hex, 0.08)} controls={controls} intro />
+      {/* spotlight + floor glow in the paint colour (over the car, never blocking touches) */}
+      <span className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_70%_45%_at_50%_0%,rgba(255,255,255,0.7),transparent_70%)]" />
+      <span
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-28 transition-[background] duration-700"
+        style={{ background: `radial-gradient(ellipse 70% 75% at 50% 100%, ${car.color.hex}30, transparent 78%)` }}
+      />
       {splash && (
         <span
           key={splash.id}
@@ -211,14 +211,51 @@ function Stage({ car, splash, onSplashEnd }: { car: Car; splash: { hex: string; 
           style={{ left: `calc(${splash.x}% - 230px)`, top: 'calc(100% - 230px)', background: `radial-gradient(circle, ${splash.hex}cc 0%, ${splash.hex}55 45%, ${splash.hex}00 70%)` }}
         />
       )}
-      <span className="pointer-events-none absolute right-3 top-3 z-[2] rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold backdrop-blur">↻ Drag to rotate</span>
+      <span className="showroom-sweep pointer-events-none absolute inset-0 z-[2]" />
+      <div key={`${car.make}|${car.model}`} className="pointer-events-none absolute left-4 top-4 z-[2] text-ink">
+        <p className="rise-in text-[12px] font-semibold uppercase tracking-[0.18em] text-gray">{car.make}</p>
+        <h1 className="rise-in text-[28px] font-bold leading-8 tracking-tight [animation-delay:120ms]">{car.model}</h1>
+      </div>
+      <span className="pointer-events-none absolute right-3 top-4 z-[2] rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-ink shadow-sm backdrop-blur">3D · drag to rotate</span>
       <div className="absolute bottom-3 left-3 right-3 z-[2] flex justify-between">
-        <button type="button" aria-label="Rotate left" onClick={() => controls.current?.rotate(-60)} className="grid h-10 w-10 place-items-center rounded-full bg-white/85 shadow-md backdrop-blur active:scale-90">
+        <button type="button" aria-label="Rotate left" onClick={() => controls.current?.rotate(-60)} className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-ink shadow-md backdrop-blur active:scale-90">
           <RotateCcw size={18} />
         </button>
-        <button type="button" aria-label="Rotate right" onClick={() => controls.current?.rotate(60)} className="grid h-10 w-10 place-items-center rounded-full bg-white/85 shadow-md backdrop-blur active:scale-90">
+        <button type="button" aria-label="Rotate right" onClick={() => controls.current?.rotate(60)} className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-ink shadow-md backdrop-blur active:scale-90">
           <RotateCw size={18} />
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** All paints, opened from the + in the paint row. */
+function PaintSheet({ value, onPick, onClose }: { value: CarColor; onPick: (c: CarColor, el: HTMLElement) => void; onClose: () => void }) {
+  return (
+    <div className="absolute inset-0 z-40 flex flex-col justify-end bg-black/40" onClick={onClose}>
+      <div role="dialog" aria-label="All colours" className="pb-safe sheet-in rounded-t-[30px] bg-white px-5 pb-5 pt-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-[19px] font-bold">All colours</h2>
+          <button type="button" aria-label="Close" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full bg-surface">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-4">
+          {COLORS.map((c) => (
+            <div key={c.name} className="flex flex-col items-center gap-1.5">
+              <Chip
+                c={c}
+                size={52}
+                on={value.name === c.name}
+                onPick={(col, el) => {
+                  onPick(col, el);
+                  setTimeout(onClose, 250);
+                }}
+              />
+              <span className={cx('text-center text-[11px] leading-[13px]', value.name === c.name ? 'font-semibold' : 'text-gray')}>{c.name}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

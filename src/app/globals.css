@@ -285,3 +285,23 @@ input {
   .paint-splash, .pop-in { animation: none; opacity: 0; }
   .pop-in { opacity: 1; }
 }
+
+/* Showroom intro: the car name rises in; a light sweeps across once. */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.rise-in { animation: rise-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes showroom-sweep {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to { transform: translateX(220%) skewX(-18deg); }
+}
+.showroom-sweep::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  animation: showroom-sweep 1.6s 0.4s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise-in { animation: none; }
+  .showroom-sweep::after { display: none; }
+}

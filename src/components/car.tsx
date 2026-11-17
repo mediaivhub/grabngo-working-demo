@@ -94,7 +94,7 @@ export function tintedBackground(base: number[], hex: string, amount: number) {
   return base.map((b, i) => Math.round((b * (1 - amount) + c[i] * amount) * 1000) / 1000);
 }
 
-export function Car3DView({ car, background, dark, controls }: { car: Car; background: number[]; dark?: boolean; controls?: { current: CarControls | null } }) {
+export function Car3DView({ car, background, dark, controls, intro }: { car: Car; background: number[]; dark?: boolean; controls?: { current: CarControls | null }; intro?: boolean }) {
   const model = model3dFor(car);
   const frame = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -176,9 +176,30 @@ export function Car3DView({ car, background, dark, controls }: { car: Car; backg
                 () =>
                   api.focusOnVisibleGeometries(() =>
                     api.getCameraLookAt((err, cam) => {
-                      if (!cancelled) setState('ready');
-                      if (err) return;
-                      api.setCameraLookAt(cam.position.map((p, k) => cam.target[k] + (p - cam.target[k]) * 1.15), cam.target, 0.6);
+                      if (err) {
+                        if (!cancelled) setState('ready');
+                        return;
+                      }
+                      const final = cam.position.map((p, k) => cam.target[k] + (p - cam.target[k]) * 1.15);
+                      if (!intro) {
+                        if (!cancelled) setState('ready');
+                        api.setCameraLookAt(final, cam.target, 0.6);
+                        return;
+                      }
+                      // Cinematic reveal: start far out, high and round the side, then sweep in to the car.
+                      const a = (-150 * Math.PI) / 180;
+                      const [dx, dy] = [final[0] - cam.target[0], final[1] - cam.target[1]];
+                      const start = [
+                        cam.target[0] + (dx * Math.cos(a) - dy * Math.sin(a)) * 2.1,
+                        cam.target[1] + (dx * Math.sin(a) + dy * Math.cos(a)) * 2.1,
+                        cam.target[2] + (final[2] - cam.target[2]) * 2.6 + Math.hypot(dx, dy) * 0.6,
+                      ];
+                      api.setCameraLookAt(start, cam.target, 0);
+                      setTimeout(() => {
+                        if (cancelled) return;
+                        setState('ready');
+                        api.setCameraLookAt(final, cam.target, 2.2);
+                      }, 120);
                     }),
                   ),
                 600,
@@ -197,7 +218,7 @@ export function Car3DView({ car, background, dark, controls }: { car: Car; backg
       viewer.current = null;
       if (controls) controls.current = null;
     };
-  }, [model, controls]);
+  }, [model, controls, intro]);
 
   if (!model) return null;
   if (state === 'error')
