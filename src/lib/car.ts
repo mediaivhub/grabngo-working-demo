@@ -4,6 +4,8 @@
  * database (vPIC: free, no key) merged with GCC-only models and Chinese brands sold in the UAE.
  */
 
+import { MORE_CARS } from '@/lib/cars3d-more';
+
 export type BodyStyle = 'sedan' | 'suv' | 'boxy' | 'sports' | 'pickup';
 export type EmirateId = 'dubai' | 'abudhabi' | 'sharjah';
 export type CarColor = { name: string; hex: string; custom?: boolean };
@@ -78,7 +80,6 @@ export const MODELS_3D_LIST: Model3D[] = [
   M('Mercedes-Benz', 'GLS', 'suv', '6f8ad7f1624e42c58b4e9525cc45c8be', 'gls_paint|vehicle_paint', 'White', 'Mercedes-Benz GLS', 'BlackSnow02'),
   M('Mercedes-Benz', 'Maybach GLS 600', 'suv', '34c4687ba8204efaa7551afea9f5689f', 'gls_paint|vehicle_paint', 'Silver', 'Mercedes-Maybach GLS 600', 'BlackSnow02'),
   M('Mercedes-Benz', 'S-Class', 'sedan', 'f42d9d13b0404b5b9a2302a4c590a94d', '^sw222_paint$', 'Silver', 'Mercedes-Benz S65 W222', 'BlackSnow02'),
-  M('Nissan', 'Altima', 'sedan', 'db60e37c748e4b3caee78848806026eb', '^carpaint$', 'Black', 'Nissan Altima 2017', 'I95XP'),
   M('Nissan', 'Patrol', 'suv', '37096fa8cdfe4756b42a4b80e2315d67', '^body$', 'Black', 'Nissan Patrol Y62', 'Nieve5677'),
   M('Porsche', '911', 'sports', '877b1bc1739f4a2bb65d62fd7ffd9f75', '^body_main$', 'Grey', 'Porsche 911 with interior', 'n.brizitskaya'),
   M('Porsche', 'Cayenne', 'suv', 'd1fd357faf314607afc39a67d5b4f4f1', 'RedMain', 'Red', 'Porsche Cayenne GTS 2020', 'Car2022'),
@@ -95,9 +96,10 @@ export const MODELS_3D_LIST: Model3D[] = [
   M('Mercedes-Benz', 'E-Class', 'sedan', '820387a848a8449eb6565ff35e74388a', '^Body_Color$', '', 'Mercedes-Benz E-Class W212', 'BlackSnow02'),
   M('Nissan', 'X-Trail', 'suv', 'f9f2cbdacac74ee7acfe1c731195ccaa', '^Car_Paint$', '', '2023 Nissan X-Trail', 'ddiaz-design'),
   M('Toyota', 'RAV4', 'suv', '450e36f0992c4ae09bd6c8d509a51a77', '^Car paint', '', 'Toyota RAV4 2010', 'Teddy168'),
+  ...MORE_CARS.map(([make, model, uid, paint, title, author, thumb]) => ({ ...M(make, model, 'suv', uid, paint, '', title, author), thumb })),
 ]
   .sort((a, b) => `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`))
-  .map((m) => ({ ...m, thumb: THUMBS[m.uid] }));
+  .map((m) => ({ ...m, thumb: m.thumb ?? THUMBS[m.uid] }));
 export const MODELS_3D: Record<string, Model3D> = Object.fromEntries(MODELS_3D_LIST.map((m) => [`${m.make}|${m.model}`, m]));
 export const model3dFor = (car: Pick<Car, 'make' | 'model'>) => MODELS_3D[`${car.make}|${car.model}`];
 /** `color` '' = modelled colour unknown: always repaint to the customer's colour. */

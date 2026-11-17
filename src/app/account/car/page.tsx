@@ -137,7 +137,7 @@ function CarPicker({ value, onPick }: { value: Car; onPick: (c: (typeof CARS_3D)
   const [q, setQ] = useState('');
   const current = model3dFor(value);
   const query = q.trim().toLowerCase();
-  const list = CARS_3D.filter((c) => !query || `${c.make} ${c.model}`.toLowerCase().includes(query));
+  const list = CARS_3D.filter((c) => !query || c.make.toLowerCase() === query || `${c.make} ${c.model}`.toLowerCase().includes(query));
   const makes = [...new Set(list.map((c) => c.make))];
 
   return (
@@ -180,6 +180,20 @@ function CarPicker({ value, onPick }: { value: Car; onPick: (c: (typeof CARS_3D)
               <Search size={17} className="text-gray" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search make or model" aria-label="Search cars" className="h-full flex-1 bg-transparent text-[15px] outline-none placeholder:text-gray" />
             </label>
+            <div className="no-scrollbar flex gap-1.5 overflow-x-auto px-5 pb-2">
+              {['All', ...new Set(CARS_3D.map((c) => c.make))].map((mk) => {
+                const on = mk === 'All' ? !query : query === mk.toLowerCase();
+                return (
+                  <button
+                    key={mk}
+                    type="button"
+                    onClick={() => setQ(mk === 'All' ? '' : mk)}
+                    className={cx('h-8 shrink-0 rounded-full px-3 text-[13px] font-medium', on ? 'bg-ink text-white' : 'bg-surface text-ink')}>
+                    {mk}
+                  </button>
+                );
+              })}
+            </div>
             <div className="scroll min-h-0 flex-1 px-5 pb-4">
               {makes.length === 0 && <p className="py-10 text-center text-[14px] text-gray">No cars match “{q}”. More cars are coming soon.</p>}
               {makes.map((make) => (
