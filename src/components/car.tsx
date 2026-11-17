@@ -94,7 +94,7 @@ export function tintedBackground(base: number[], hex: string, amount: number) {
   return base.map((b, i) => Math.round((b * (1 - amount) + c[i] * amount) * 1000) / 1000);
 }
 
-export function Car3DView({ car, background, dark, controls, intro }: { car: Car; background: number[]; dark?: boolean; controls?: { current: CarControls | null }; intro?: boolean }) {
+export function Car3DView({ car, background, dark, controls, intro, plateClass }: { car: Car; background: number[]; dark?: boolean; controls?: { current: CarControls | null }; intro?: boolean; plateClass?: string }) {
   const model = model3dFor(car);
   const frame = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -248,7 +248,7 @@ export function Car3DView({ car, background, dark, controls, intro }: { car: Car
           <span className={cx('pointer-events-none absolute inset-0 grid place-items-center text-[13px]', dark ? 'text-white/60' : 'text-gray')}>Loading your car…</span>
         ))}
       {state === 'loading' && <span className="pointer-events-none absolute bottom-12 left-1/2 z-[2] h-1 w-16 -translate-x-1/2 overflow-hidden rounded-full bg-black/10"><span className="block h-full w-1/2 animate-[load-slide_1s_ease-in-out_infinite] rounded-full bg-black/40" /></span>}
-      <PlateBadge car={car} className="pointer-events-none absolute bottom-2.5 left-1/2 z-[2] -translate-x-1/2 drop-shadow-md" />
+      <PlateBadge car={car} className={cx('pointer-events-none absolute left-1/2 z-[2] -translate-x-1/2 drop-shadow-md transition-[bottom] duration-300', plateClass ?? 'bottom-2.5')} />
     </>
   );
 }

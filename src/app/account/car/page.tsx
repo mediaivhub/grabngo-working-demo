@@ -1,7 +1,7 @@
 'use client';
 
-import { Check, ChevronDown, Plus, RotateCcw, RotateCw, Search, Trash2, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Check, ChevronDown, Maximize2, Plus, RotateCcw, RotateCw, Search, Trash2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Car3DView, type CarControls, PlateBadge, tintedBackground } from '@/components/car';
 import { Button, cx, NavHeader, useGoBack } from '@/components/ui';
 import { type Car, type CarColor, carName, CARS_3D, COLORS, DEMO_CAR, EMIRATES, type EmirateId, model3dFor, plateText } from '@/lib/car';
@@ -32,6 +32,7 @@ function CarForm({ initial }: { initial: Car | null }) {
   const set = (patch: Partial<Car>) => setDraft((c) => ({ ...c, ...patch }));
   const [splash, setSplash] = useState<{ hex: string; id: number; x: number } | null>(null);
   const [paintOpen, setPaintOpen] = useState(false);
+  const [full, setFull] = useState(false);
   // One line: the popular paints, plus the current one if it isn't among them.
   const quickColors = (() => {
     const base = ['White', 'Black', 'Silver', 'Grey', 'Blue', 'Red'].map((n) => COLORS.find((c) => c.name === n)!);
@@ -54,13 +55,28 @@ function CarForm({ initial }: { initial: Car | null }) {
     back();
   };
 
+  const paintRow = (
+            <div role="radiogroup" aria-label="Paint colour" className="flex items-center justify-between">
+              {quickColors.map((c) => (
+                <Chip key={c.name} c={c} on={car.color.name === c.name} onPick={pickColor} />
+              ))}
+              <button
+                type="button"
+                aria-label="More colours"
+                onClick={() => setPaintOpen(true)}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-[1.5px] border-dashed border-gray-light text-gray active:scale-90">
+                <Plus size={20} />
+              </button>
+            </div>
+  );
+
   return (
     <>
       <div className="scroll flex-1">
         <div className="rounded-b-[30px] bg-white px-5 pb-6">
           <NavHeader title="My Car" fallback="/profile" className="-mx-5" />
 
-          <Stage car={car} splash={splash} onSplashEnd={() => setSplash(null)} />
+          <Stage car={car} splash={splash} onSplashEnd={() => setSplash(null)} expanded={full} onExpand={setFull} paintBar={paintRow} />
 
           <div className="mt-3">
             <CarPicker value={car} onPick={(c) => set({ ...c, color: car.color })} />
@@ -76,18 +92,7 @@ function CarForm({ initial }: { initial: Car | null }) {
               {car.color.name}
             </span>
           </div>
-          <div role="radiogroup" aria-label="Paint colour" className="mt-3 flex items-center justify-between">
-            {quickColors.map((c) => (
-              <Chip key={c.name} c={c} on={car.color.name === c.name} onPick={pickColor} />
-            ))}
-            <button
-              type="button"
-              aria-label="More colours"
-              onClick={() => setPaintOpen(true)}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-[1.5px] border-dashed border-gray-light text-gray active:scale-90">
-              <Plus size={20} />
-            </button>
-          </div>
+          <div className="mt-3">{paintRow}</div>
         </section>
 
         {/* Plate */}
@@ -187,43 +192,68 @@ function Chip({ c, on, onPick, size = 40 }: { c: CarColor; on: boolean; onPick: 
 }
 
 /**
- * The showroom: a dark spotlit stage. On open the camera swoops in round the car while its name
+ * The showroom: a light spotlit stage that can open full screen. On open the camera swoops in round the car while its name
  * slides up; the floor glows in the paint colour, which splashes on every change.
  */
-function Stage({ car, splash, onSplashEnd }: { car: Car; splash: { hex: string; id: number; x: number } | null; onSplashEnd: () => void }) {
+function Stage({ car, splash, onSplashEnd, expanded, onExpand, paintBar }: { car: Car; splash: { hex: string; id: number; x: number } | null; onSplashEnd: () => void; expanded: boolean; onExpand: (v: boolean) => void; paintBar: React.ReactNode }) {
   const model = model3dFor(car);
   const controls = useRef<CarControls | null>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onExpand(false);
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [expanded, onExpand]);
   if (!model) return null;
+  const round = 'grid h-10 w-10 place-items-center rounded-full bg-white/90 text-ink shadow-md backdrop-blur active:scale-90';
   return (
-    <div className="relative mt-1 h-[340px] overflow-hidden overflow-clip rounded-[28px] bg-[#f1efec]">
-      <Car3DView key={model.uid} car={car} background={tintedBackground([0.955, 0.948, 0.937], car.color.hex, 0.08)} controls={controls} intro />
-      {/* spotlight + floor glow in the paint colour (over the car, never blocking touches) */}
-      <span className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_70%_45%_at_50%_0%,rgba(255,255,255,0.7),transparent_70%)]" />
-      <span
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-28 transition-[background] duration-700"
-        style={{ background: `radial-gradient(ellipse 70% 75% at 50% 100%, ${car.color.hex}30, transparent 78%)` }}
-      />
-      {splash && (
+    // Placeholder keeps the page from jumping while the stage is full screen.
+    <div className="mt-1 h-[340px]">
+      <div
+        className={cx(
+          'overflow-hidden overflow-clip bg-[#f1efec] transition-[border-radius] duration-300',
+          // Same element either way, so the 3D model never reloads.
+          expanded ? 'showroom-open absolute inset-0 z-50 rounded-none' : 'relative h-[340px] rounded-[28px]',
+        )}>
+        <Car3DView key={model.uid} car={car} background={tintedBackground([0.955, 0.948, 0.937], car.color.hex, 0.08)} controls={controls} intro plateClass={expanded ? 'bottom-[calc(var(--safe-bottom)+112px)]' : undefined} />
+        {/* spotlight + floor glow in the paint colour (over the car, never blocking touches) */}
+        <span className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_70%_45%_at_50%_0%,rgba(255,255,255,0.7),transparent_70%)]" />
         <span
-          key={splash.id}
-          onAnimationEnd={onSplashEnd}
-          className="paint-splash pointer-events-none absolute z-[3] h-[460px] w-[460px] rounded-full"
-          style={{ left: `calc(${splash.x}% - 230px)`, top: 'calc(100% - 230px)', background: `radial-gradient(circle, ${splash.hex}cc 0%, ${splash.hex}55 45%, ${splash.hex}00 70%)` }}
+          className={cx('pointer-events-none absolute inset-x-0 bottom-0 z-[1] transition-[background] duration-700', expanded ? 'h-56' : 'h-28')}
+          style={{ background: `radial-gradient(ellipse 70% 75% at 50% 100%, ${car.color.hex}30, transparent 78%)` }}
         />
-      )}
-      <span className="showroom-sweep pointer-events-none absolute inset-0 z-[2]" />
-      <div key={`${car.make}|${car.model}`} className="pointer-events-none absolute left-4 top-4 z-[2] text-ink">
-        <p className="rise-in text-[12px] font-semibold uppercase tracking-[0.18em] text-gray">{car.make}</p>
-        <h1 className="rise-in text-[28px] font-bold leading-8 tracking-tight [animation-delay:120ms]">{car.model}</h1>
-      </div>
-      <span className="pointer-events-none absolute right-3 top-4 z-[2] rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-ink shadow-sm backdrop-blur">3D · drag to rotate</span>
-      <div className="absolute bottom-3 left-3 right-3 z-[2] flex justify-between">
-        <button type="button" aria-label="Rotate left" onClick={() => controls.current?.rotate(-60)} className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-ink shadow-md backdrop-blur active:scale-90">
-          <RotateCcw size={18} />
-        </button>
-        <button type="button" aria-label="Rotate right" onClick={() => controls.current?.rotate(60)} className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-ink shadow-md backdrop-blur active:scale-90">
-          <RotateCw size={18} />
-        </button>
+        {splash && (
+          <span
+            key={splash.id}
+            onAnimationEnd={onSplashEnd}
+            className="paint-splash pointer-events-none absolute z-[3] h-[460px] w-[460px] rounded-full"
+            style={{ left: `calc(${splash.x}% - 230px)`, top: expanded ? 'calc(100% - 330px)' : 'calc(100% - 230px)', background: `radial-gradient(circle, ${splash.hex}cc 0%, ${splash.hex}55 45%, ${splash.hex}00 70%)` }}
+          />
+        )}
+        <span className="showroom-sweep pointer-events-none absolute inset-0 z-[2]" />
+        <div key={`${car.make}|${car.model}|${expanded}`} className={cx('pointer-events-none absolute left-4 z-[2] text-ink', expanded ? 'top-[calc(var(--safe-top)+16px)]' : 'top-4')}>
+          <p className="rise-in text-[12px] font-semibold uppercase tracking-[0.18em] text-gray">{car.make}</p>
+          <h1 className={cx('rise-in font-bold tracking-tight [animation-delay:120ms]', expanded ? 'text-[34px] leading-10' : 'text-[28px] leading-8')}>{car.model}</h1>
+          {expanded && <p className="rise-in mt-1 text-[14px] text-gray [animation-delay:220ms]">{car.color.name} · drag to rotate</p>}
+        </div>
+        {expanded ? (
+          <button type="button" aria-label="Close full screen" onClick={() => onExpand(false)} className={cx(round, 'absolute right-4 top-[calc(var(--safe-top)+16px)] z-[2]')}>
+            <X size={19} />
+          </button>
+        ) : (
+          <button type="button" aria-label="Full screen" onClick={() => onExpand(true)} className={cx(round, 'absolute right-3 top-3 z-[2] h-9 w-9')}>
+            <Maximize2 size={16} />
+          </button>
+        )}
+        <div className={cx('absolute left-3 right-3 z-[2] flex justify-between', expanded ? 'bottom-[calc(var(--safe-bottom)+108px)]' : 'bottom-3')}>
+          <button type="button" aria-label="Rotate left" onClick={() => controls.current?.rotate(-60)} className={round}>
+            <RotateCcw size={18} />
+          </button>
+          <button type="button" aria-label="Rotate right" onClick={() => controls.current?.rotate(60)} className={round}>
+            <RotateCw size={18} />
+          </button>
+        </div>
+        {expanded && <div className="rise-in absolute inset-x-3 bottom-[calc(var(--safe-bottom)+14px)] z-[2] rounded-[26px] bg-white/85 px-4 py-3.5 shadow-lg backdrop-blur-md [animation-delay:200ms]">{paintBar}</div>}
       </div>
     </div>
   );
@@ -232,7 +262,7 @@ function Stage({ car, splash, onSplashEnd }: { car: Car; splash: { hex: string; 
 /** All paints, opened from the + in the paint row. */
 function PaintSheet({ value, onPick, onClose }: { value: CarColor; onPick: (c: CarColor, el: HTMLElement) => void; onClose: () => void }) {
   return (
-    <div className="absolute inset-0 z-40 flex flex-col justify-end bg-black/40" onClick={onClose}>
+    <div className="absolute inset-0 z-[60] flex flex-col justify-end bg-black/40" onClick={onClose}>
       <div role="dialog" aria-label="All colours" className="pb-safe sheet-in rounded-t-[30px] bg-white px-5 pb-5 pt-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-[19px] font-bold">All colours</h2>

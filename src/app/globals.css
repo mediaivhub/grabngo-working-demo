@@ -305,3 +305,11 @@ input {
   .rise-in { animation: none; }
   .showroom-sweep::after { display: none; }
 }
+
+/* Full-screen showroom opens with a gentle zoom. */
+@keyframes showroom-open {
+  from { transform: scale(0.94); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
+}
+.showroom-open { animation: showroom-open 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) { .showroom-open { animation: none; } }
