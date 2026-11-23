@@ -57,6 +57,8 @@ type State = {
   cart: { placeId: string; lines: CartLine[]; carPlate: string; pickup?: PickupMode };
   /** The customer's saved car for curbside pickup. */
   car: Car | null;
+  /** Invitations the customer has accepted (ids). */
+  invitations: string[];
   user: User | null;
   orders: Order[];
   usualMode: UsualMode;
@@ -99,6 +101,7 @@ const initialState: State = {
   hydrated: false,
   cart: { placeId: 'orfali', lines: [], carPlate: '', pickup: 'counter' },
   car: DEMO_CAR,
+  invitations: [],
   user: null,
   orders: TEST_ORDERS,
   usualMode: 'recent',
@@ -156,6 +159,7 @@ type Action =
   | { type: 'pref'; key: string; value: boolean }
   | { type: 'chat'; message: ChatMessage }
   | { type: 'car'; car: Car | null }
+  | { type: 'acceptInvitation'; id: string }
   | { type: 'pickup'; mode: PickupMode }
   | { type: 'arrived'; id: string; at: number };
 
@@ -240,6 +244,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, chat: [...state.chat, action.message] };
     case 'car':
       return { ...state, car: action.car };
+    case 'acceptInvitation':
+      return state.invitations?.includes(action.id) ? state : { ...state, invitations: [...(state.invitations ?? []), action.id] };
     case 'pickup':
       return { ...state, cart: { ...state.cart, pickup: action.mode } };
     case 'arrived':
@@ -343,6 +349,7 @@ function useStoreValue() {
       setQty: (key: string, qty: number) => dispatch({ type: 'qty', key, qty }),
       setCarPlate: (value: string) => dispatch({ type: 'carPlate', value }),
       setCar: (car: Car | null) => dispatch({ type: 'car', car }),
+      acceptInvitation: (id: string) => dispatch({ type: 'acceptInvitation', id }),
       setPickupMode: (mode: PickupMode) => dispatch({ type: 'pickup', mode }),
       markArrived: (id: string) => dispatch({ type: 'arrived', id, at: Date.now() }),
       login: (user: User) => {

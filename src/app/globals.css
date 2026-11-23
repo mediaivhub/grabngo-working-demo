@@ -393,3 +393,11 @@ input {
 }
 .cart-bump { animation: cart-bump 0.45s cubic-bezier(0.3, 1.4, 0.5, 1); }
 @media (prefers-reduced-motion: reduce) { .cart-bump { animation: none; } }
+
+/* Story photos drift with a slow zoom. */
+@keyframes story-zoom {
+  from { transform: scale(1.12); }
+  to { transform: scale(1); }
+}
+.story-zoom { animation: story-zoom 5.5s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .story-zoom { animation: none; } }

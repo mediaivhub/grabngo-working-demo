@@ -20,7 +20,7 @@ function botReply(text: string, order?: Order) {
   if (/qr/.test(t)) return 'No worries! I’ve re-sent your QR code — find it under Order Status → Show QR code.';
   if (/refund|cancel/.test(t)) return 'Sorry about that. Share your order number and what went wrong, and I’ll start the refund right away.';
   if (/person|human|agent/.test(t)) return 'Connecting you with a teammate — typical wait is under 2 minutes.';
-  if (/thank/.test(t)) return 'You’re welcome! 😊 Let us know if you need anything else.';
+  if (/thank/.test(t)) return 'You’re welcome. Let us know if you need anything else.';
   return 'Thanks for the message! A member of our team will reply shortly.';
 }
 

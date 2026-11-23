@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, Maximize2, Plus, RotateCcw, RotateCw, Search, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Maximize2, Plus, RotateCcw, RotateCw, Search, Trash2, X, Car as CarIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Car3DView, type CarControls, PlateBadge, tintedBackground } from '@/components/car';
 import { Button, cx, NavHeader, useGoBack } from '@/components/ui';
@@ -134,7 +134,7 @@ function CarForm({ initial }: { initial: Car | null }) {
             />
           </div>
           <div className="mt-4 flex items-center gap-2.5 rounded-2xl bg-[#f7f7f7] px-3.5 py-3 text-[14px] leading-[19px]">
-            <span className="text-[20px]">🚘</span>
+            <CarIcon size={20} className="shrink-0 text-gray" />
             <span>
               Staff will look for a <b className="font-semibold">{carName(car)}</b>, plate <b className="font-semibold">{plateText(car)}</b>.
             </span>

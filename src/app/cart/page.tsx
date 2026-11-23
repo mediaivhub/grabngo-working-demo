@@ -3,6 +3,7 @@
 import { Car as CarIcon, Store } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { CarStage } from '@/components/car';
+import { InvitationInCart } from '@/components/Invitations';
 import { OrderSummary, PickupInfo, Section, TotalBar } from '@/components/OrderBlocks';
 import { cx, EmptyState, NavHeader, orbs, Price, QtyStepper } from '@/components/ui';
 import { carName, plateText } from '@/lib/car';
@@ -88,6 +89,7 @@ export default function CartScreen() {
               </button>
             ))}
         </PickupInfo>
+        <InvitationInCart placeId={place.id} />
         <OrderSummary totals={totals} />
       </div>
       <TotalBar total={totals.total} label="Confirm Pickup" disabled={atCar && !car} onClick={() => router.push(user ? '/checkout' : '/auth/login?next=checkout')} />

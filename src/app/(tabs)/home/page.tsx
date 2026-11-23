@@ -4,9 +4,11 @@ import { Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { AppHeader, LiveOrderCard, ProductTile, UsualCard } from '@/components/cards';
+import { AppHeader, LiveOrderCard, UsualCard } from '@/components/cards';
+import { CravingPicks, HeroCarousel, SmartGreeting, TodaysDrops } from '@/components/HomeExtras';
+import { InvitationsLine } from '@/components/Invitations';
 import { SearchBar } from '@/components/ui';
-import { FEATURED, getProduct, USUAL } from '@/data/mock';
+import { USUAL } from '@/data/mock';
 import { useStore } from '@/store/AppStore';
 
 const CATEGORIES = [
@@ -31,9 +33,22 @@ export default function HomeScreen() {
       <AppHeader />
       <div className="scroll" style={{ paddingBottom: activeOrder ? 150 : 32 }}>
         <div className={anim('cascade-in')}>
+          <SmartGreeting />
+          <InvitationsLine />
+        </div>
+        <div className={anim('cascade-in')} style={{ animationDelay: '80ms' }}>
+          <TodaysDrops />
+        </div>
+        <div className={`${anim('cascade-in')} mt-4`} style={{ animationDelay: '140ms' }}>
           <SearchBar onClick={() => router.push('/search')} className="mx-5" />
         </div>
-        <div className="mx-5 mt-2 flex gap-4">
+        <div className={anim('cascade-in')} style={{ animationDelay: '200ms' }}>
+          <HeroCarousel />
+        </div>
+        <div className={anim('cascade-in')} style={{ animationDelay: '260ms' }}>
+          <CravingPicks />
+        </div>
+        <div className="mx-5 mt-7 flex gap-4">
           {CATEGORIES.map((c, i) => (
             <Link key={c.kind} href={`/places/${c.kind}`} className={`${anim('cascade-in')} flex flex-1 flex-col items-center transition-transform active:scale-95`} style={{ animationDelay: `${90 + i * 80}ms` }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -53,14 +68,6 @@ export default function HomeScreen() {
               </Link>
             }
           />
-        </div>
-        <h2 className={`${anim('cascade-in')} mx-5 mb-3.5 mt-[30px] text-[21px] text-ink [animation-delay:360ms]`}>Featured on GrabnGo</h2>
-        <div className="hscroll gap-2.5 px-5">
-          {FEATURED.map((id, i) => (
-            <div key={id} className={`${anim('slide-in-right')} shrink-0`} style={{ animationDelay: `${420 + i * 70}ms` }}>
-              <ProductTile product={getProduct(id)!} className="min-h-[170px] w-[122px] shrink-0" imageSize={96} />
-            </div>
-          ))}
         </div>
       </div>
       {activeOrder && (

@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, Heart, LogIn, Star } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { Fragment, useState } from 'react';
 import { FloatingCart } from '@/components/CartFly';
+import { RestaurantInvitation } from '@/components/Invitations';
 import { DessertLayers } from '@/components/DessertLayers';
 import { FoodTurntable } from '@/components/FoodTurntable';
 import { MenuCard } from '@/components/MenuCard';
@@ -86,6 +87,7 @@ export function RestaurantView() {
             <p className="mt-2.5 text-[15px] leading-[21px] text-gray">{place.details}</p>
           </div>
         </div>
+        <RestaurantInvitation placeId={place.id} />
 
         <div className="sticky z-10 mt-4 bg-white pb-2" style={{ top: 'var(--safe-top)', boxShadow: '0 calc(-1 * var(--safe-top)) 0 #fff' }}>
           <div className="hscroll gap-1 px-5 pt-2" role="tablist">
@@ -113,7 +115,7 @@ export function RestaurantView() {
               <>
                 <div className="mx-5 mb-2 mt-7">
                   <h2 className="text-[24px] text-ink">{theme.titles?.desserts ?? 'Desserts'}</h2>
-                  <p className="mt-1 text-[14px] text-gray">{desserts.length > 1 ? 'Swipe up to see the next one' : 'A little something sweet'}</p>
+                  <p className="mt-1 text-[14px] text-gray">{desserts.length > 1 ? 'Swipe sideways through the desserts' : 'A little something sweet'}</p>
                 </div>
                 <DessertLayers items={desserts} placeId={place.id} theme={theme} />
               </>

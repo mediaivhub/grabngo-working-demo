@@ -298,7 +298,7 @@ export const reviews: Review[] = [
   { id: '2', author: 'Irina', ago: '4 days ago', stars: 5, text: 'Whenever we want Pho Bo, we order only from here. The food is very tasty!' },
   { id: '3', author: 'Yan Chebykin', ago: '4 days ago', stars: 5, text: 'I love the Pho Bo, and yours is especially delicious. Thank you.' },
   { id: '4', author: 'David', ago: '5 days ago', stars: 4.5, text: 'They cook extremely delicious food!!!' },
-  { id: '5', author: 'Nikita', ago: '6 days ago', stars: 4, text: 'Everything is great, as always 👍🏻' },
+  { id: '5', author: 'Nikita', ago: '6 days ago', stars: 4, text: 'Everything is great, as always.' },
   { id: '6', author: 'Mariam', ago: '1 week ago', stars: 5, text: 'Ready exactly when I pulled up. Love it.' },
 ];
 
