@@ -4,6 +4,7 @@ import { Check, ChevronRight, Clock, Plus, ShoppingBasket, Star, Coffee } from '
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { useCartBump } from '@/components/CartFly';
 import { cx, Pill, Price } from '@/components/ui';
 import { getProduct, type Place, type Product } from '@/data/mock';
 import { useCountdown } from '@/lib/useCountdown';
@@ -16,15 +17,16 @@ export function avatarSrc(uri?: string) {
 /** Logo + basket + avatar row used on the Home, Map and Orders tabs. */
 export function AppHeader() {
   const { cartCount, user } = useStore();
+  const bump = useCartBump();
   return (
     <div className="flex items-center justify-between px-5 py-4">
       <span className="text-[26px] font-bold tracking-tight">
         Grab<span className="text-brand">n</span>Go
       </span>
       <div className="flex items-center gap-3">
-        <Link href="/cart" aria-label={`Cart, ${cartCount} items`} className="flex h-11 min-w-[66px] items-center justify-center gap-1.5 rounded-full bg-surface px-3.5">
+        <Link key={bump} data-cart-target href="/cart" aria-label={`Cart, ${cartCount} items`} className={cx('flex h-11 min-w-[66px] items-center justify-center gap-1.5 rounded-full bg-surface px-3.5', bump > 0 && 'cart-bump')}>
           <ShoppingBasket size={22} fill="currentColor" />
-          <span className="text-[18px] font-medium">{cartCount}</span>
+          <span className="text-[18px] font-medium tabular-nums">{cartCount}</span>
         </Link>
         <Link href="/profile" aria-label="Profile">
           {/* eslint-disable-next-line @next/next/no-img-element */}

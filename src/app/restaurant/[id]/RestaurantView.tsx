@@ -3,6 +3,7 @@
 import { ArrowLeft, Clock, Heart, LogIn, Star } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { Fragment, useState } from 'react';
+import { FloatingCart } from '@/components/CartFly';
 import { DessertLayers } from '@/components/DessertLayers';
 import { FoodTurntable } from '@/components/FoodTurntable';
 import { MenuCard } from '@/components/MenuCard';
@@ -121,8 +122,9 @@ export function RestaurantView() {
         ) : (
           <div className="pt-3">{grid(filtered)}</div>
         )}
-        <div className="h-10" />
+        <div className="h-24" />
       </div>
+      <FloatingCart placeId={place.id} />
 
       <div className="pointer-events-none absolute inset-x-4 flex items-center justify-between" style={{ top: 'calc(var(--safe-top) + 10px)' }}>
         <CircleButton label="Back" variant="white" size={52} onClick={back} className="pointer-events-auto">

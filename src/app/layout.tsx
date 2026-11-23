@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { FlyLayer } from '@/components/CartFly';
 import { Warm3D } from '@/components/car';
 import { DeviceFrame } from '@/components/DeviceFrame';
 import { AppStoreProvider } from '@/store/AppStore';
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       </head>
       <body>
         <Warm3D />
+        <FlyLayer />
         <DeviceFrame>
           <AppStoreProvider>{children}</AppStoreProvider>
         </DeviceFrame>

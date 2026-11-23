@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import { getMenu, menuProduct, PREP_SECONDS, seedNotifications, type AppNotification, type FoodTag } from '@/data/mock';
 import { type Car, DEMO_CAR, model3dFor, plateText } from '@/lib/car';
+import { flyToCart } from '@/components/CartFly';
 import { setOnboarded } from '@/lib/onboarding';
 import { orderTotals, unitPrice, type AddonSelection, type Size } from '@/lib/pricing';
 
@@ -285,6 +286,7 @@ function useStoreValue() {
       if (!product) return;
       const size = args.size ?? 'M';
       const addons = args.addons ?? {};
+      flyToCart(product.image);
       dispatch({
         type: 'add',
         placeId: args.placeId,
