@@ -313,3 +313,73 @@ input {
 }
 .showroom-open { animation: showroom-open 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @media (prefers-reduced-motion: reduce) { .showroom-open { animation: none; } }
+
+/* ================= First-impression motion ================= */
+
+/* Splash: logo springs in, ripples pulse out, then zooms toward you on exit. */
+@keyframes splash-pop {
+  0% { transform: scale(0.35); opacity: 0; }
+  55% { transform: scale(1.08); opacity: 1; }
+  75% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+.splash-pop { animation: splash-pop 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+@keyframes splash-ripple {
+  from { transform: scale(0.5); opacity: 0.45; }
+  to { transform: scale(2.4); opacity: 0; }
+}
+.splash-ripple { animation: splash-ripple 1.6s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes splash-exit {
+  to { transform: scale(1.35); opacity: 0; filter: blur(2px); }
+}
+.splash-exit { animation: splash-exit 0.38s ease-in forwards; }
+@keyframes splash-glow {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.12); }
+}
+.splash-glow { animation: splash-glow 1.8s ease-in-out infinite; }
+
+/* Welcome: drifting warm blobs, words rising, a sheen across the main button. */
+@keyframes blob-drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, 30px) scale(1.15); }
+}
+@keyframes blob-drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1.1); }
+  50% { transform: translate(-36px, -24px) scale(0.95); }
+}
+.blob-a { animation: blob-drift-a 9s ease-in-out infinite; }
+.blob-b { animation: blob-drift-b 11s ease-in-out infinite; }
+@keyframes word-rise {
+  from { opacity: 0; transform: translateY(16px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.word-rise { display: inline-block; animation: word-rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes btn-sheen {
+  0%, 72% { transform: translateX(-130%) skewX(-20deg); }
+  100% { transform: translateX(330%) skewX(-20deg); }
+}
+.btn-sheen { position: relative; overflow: hidden; }
+.btn-sheen::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 35%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: btn-sheen 3.6s 1.6s ease-in-out infinite;
+}
+
+/* Home: sections cascade in. */
+@keyframes cascade-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+.cascade-in { animation: cascade-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: none; }
+}
+.slide-in-right { animation: slide-in-right 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-pop, .splash-ripple, .splash-exit, .splash-glow, .blob-a, .blob-b, .word-rise, .cascade-in, .slide-in-right { animation: none; }
+  .splash-ripple { display: none; }
+  .btn-sheen::after { display: none; }
+}
