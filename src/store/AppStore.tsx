@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import { getMenu, menuProduct, PREP_SECONDS, seedNotifications, type AppNotification, type FoodTag } from '@/data/mock';
 import { type Car, DEMO_CAR, model3dFor, plateText } from '@/lib/car';
+import { acceptedInvitationFor, checkInvitation } from '@/lib/invitations';
 import { flyToCart } from '@/components/CartFly';
 import { setOnboarded } from '@/lib/onboarding';
 import { orderTotals, unitPrice, type AddonSelection, type Size } from '@/lib/pricing';
@@ -312,10 +313,16 @@ function useStoreValue() {
   const placeOrder = useCallback(
     (payment: PaymentMethod) => {
       const now = Date.now();
+      // An accepted invitation whose rule the cart meets adds its gift, free.
+      const inv = acceptedInvitationFor(state.cart.placeId, state.invitations);
+      const giftLines: CartLine[] =
+        inv && checkInvitation(inv, state.cart.lines).eligible
+          ? [{ key: `gift|${inv.id}`, productId: inv.giftProductId, size: 'M', addons: {}, qty: 1, unitPrice: 0 }]
+          : [];
       const order: Order = {
         id: `GNG-${String(now).slice(-6)}`,
         placeId: state.cart.placeId,
-        lines: state.cart.lines,
+        lines: [...state.cart.lines, ...giftLines],
         total: orderTotals(state.cart.lines).total,
         createdAt: now,
         readyAt: now + PREP_SECONDS * 1000,
@@ -327,7 +334,7 @@ function useStoreValue() {
       dispatch({ type: 'placeOrder', order });
       return order.id;
     },
-    [state.cart, state.car],
+    [state.cart, state.car, state.invitations],
   );
 
   const reorder = useCallback((order: Order) => {

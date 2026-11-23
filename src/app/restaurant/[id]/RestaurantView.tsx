@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Clock, Heart, LogIn, Star } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import { Fragment, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { FloatingCart } from '@/components/CartFly';
 import { RestaurantInvitation } from '@/components/Invitations';
 import { DessertLayers } from '@/components/DessertLayers';
@@ -32,6 +32,9 @@ export function RestaurantView() {
   const status = now ? openStatus(place.schedule, new Date(now)) : { open: true, label: 'Hours' };
   // White status bar over the photo, dark once it scrolls away.
   const [overPhoto, setOverPhoto] = useState(true);
+  // The tab bar paints over the status-bar area only once it's stuck to the top (else it would cover the content above it).
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [tabsStuck, setTabsStuck] = useState(false);
   useStatusBarTone(overPhoto ? 'light' : 'dark');
 
   // Everything below comes from this merchant's own menu (items, sections, prices, colours).
@@ -54,7 +57,14 @@ export function RestaurantView() {
 
   return (
     <main className="screen">
-      <div className="scroll pb-safe" onScroll={(e) => setOverPhoto(e.currentTarget.scrollTop < HERO - 80)}>
+      <div
+        className="scroll pb-safe"
+        onScroll={(e) => {
+          setOverPhoto(e.currentTarget.scrollTop < HERO - 80);
+          const tabs = tabsRef.current;
+          // Stuck when the bar sits at its sticky offset from the top of the scroll area.
+          if (tabs) setTabsStuck(tabs.getBoundingClientRect().top - e.currentTarget.getBoundingClientRect().top <= parseFloat(getComputedStyle(tabs).top) + 1);
+        }}>
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={place.hero} alt="" className="w-full object-cover" style={{ height: HERO }} />
@@ -89,7 +99,7 @@ export function RestaurantView() {
         </div>
         <RestaurantInvitation placeId={place.id} />
 
-        <div className="sticky z-10 mt-4 bg-white pb-2" style={{ top: 'var(--safe-top)', boxShadow: '0 calc(-1 * var(--safe-top)) 0 #fff' }}>
+        <div ref={tabsRef} className="sticky z-10 mt-4 bg-white pb-2" style={{ top: 'var(--safe-top)', boxShadow: tabsStuck ? '0 calc(-1 * var(--safe-top)) 0 #fff' : 'none' }}>
           <div className="hscroll gap-1 px-5 pt-2" role="tablist">
             {tabs.map((t) => (
               <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={cx('h-10 shrink-0 rounded-full px-4 text-[15px] text-ink', tab === t.id && 'bg-surface')}>

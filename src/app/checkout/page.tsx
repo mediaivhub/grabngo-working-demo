@@ -4,6 +4,7 @@ import { Banknote, Check, ChevronRight, Plus, Ticket } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { PlateBadge } from '@/components/car';
+import { InvitationInCart } from '@/components/Invitations';
 import { OrderSummary, PickupInfo, Section, TotalBar } from '@/components/OrderBlocks';
 import { CardLogo, OutlineLogo } from '@/components/CardLogo';
 import { NavHeader, RadioDot } from '@/components/ui';
@@ -113,6 +114,7 @@ export default function CheckoutScreen() {
             </div>
           )}
         </PickupInfo>
+        <InvitationInCart placeId={place.id} lines={cart.lines} compact />
         <OrderSummary totals={totals} />
       </div>
       <TotalBar

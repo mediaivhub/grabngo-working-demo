@@ -89,7 +89,7 @@ export default function CartScreen() {
               </button>
             ))}
         </PickupInfo>
-        <InvitationInCart placeId={place.id} />
+        <InvitationInCart placeId={place.id} lines={cart.lines} />
         <OrderSummary totals={totals} />
       </div>
       <TotalBar total={totals.total} label="Confirm Pickup" disabled={atCar && !car} onClick={() => router.push(user ? '/checkout' : '/auth/login?next=checkout')} />

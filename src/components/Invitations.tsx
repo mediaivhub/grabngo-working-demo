@@ -1,11 +1,12 @@
 'use client';
 
 import { Check, ChevronRight, Gift, X } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cx } from '@/components/ui';
 import { getPlace, getProduct } from '@/data/mock';
-import { INVITATIONS, invitationFor, type Invitation } from '@/lib/invitations';
+import { checkInvitation, INVITATIONS, invitationFor, type Invitation } from '@/lib/invitations';
 import { useStore } from '@/store/AppStore';
 
 /*
@@ -70,7 +71,10 @@ export function RestaurantInvitation({ placeId }: { placeId: string }) {
         )}
         <span className="min-w-0 flex-1">
           <span className="block text-[12.5px] text-gray">An invitation for you</span>
-          <span className="block truncate text-[15px] font-medium text-ink">{inv.gesture}</span>
+          <span className="block text-[15px] font-medium leading-5 text-ink">{inv.gesture}</span>
+          <span className="mt-0.5 block text-[12.5px] text-gray">
+            {inv.condition} · {inv.until}
+          </span>
         </span>
         <ChevronRight size={18} className="text-gray-light" />
       </button>
@@ -138,12 +142,19 @@ function InvitationCard({ inv, delay }: { inv: Invitation; delay: number }) {
   );
 }
 
-/** Cart: an accepted invitation from this restaurant, as a complimentary line. */
-export function InvitationInCart({ placeId }: { placeId: string }) {
-  const { invitations } = useStore();
+/**
+ * Cart and checkout: the invitation from this restaurant and whether the cart qualifies.
+ * Not accepted → offer it. Accepted + qualifies → gift added free. Accepted + not yet → say why.
+ */
+export function InvitationInCart({ placeId, lines, compact }: { placeId: string; lines: { productId: string; qty: number }[]; compact?: boolean }) {
+  const { invitations, acceptInvitation } = useStore();
   const inv = invitationFor(placeId);
-  if (!inv || !(invitations ?? []).includes(inv.id)) return null;
-  const gift = inv.giftProductId ? getProduct(inv.giftProductId) : undefined;
+  if (!inv) return null;
+  const accepted = (invitations ?? []).includes(inv.id);
+  const gift = getProduct(inv.giftProductId);
+  const check = checkInvitation(inv, lines);
+  if (compact && !accepted) return null;
+
   return (
     <section className="mt-1.5 rounded-3xl bg-white p-5">
       <div className="flex items-center gap-3">
@@ -156,11 +167,46 @@ export function InvitationInCart({ placeId }: { placeId: string }) {
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] text-ink">{gift ? gift.name : inv.gesture}</p>
-          <p className="truncate text-[13px] text-gray">Invitation · {inv.condition.toLowerCase()}</p>
+          <p className="text-[12.5px] text-gray">{accepted ? 'Your invitation' : `An invitation from ${getPlace(placeId)?.name}`}</p>
+          <p className="text-[15px] leading-5 text-ink">{accepted && gift ? gift.name : inv.gesture}</p>
         </div>
-        <span className="text-[14px] font-medium text-green">Complimentary</span>
+        {!accepted ? (
+          <button type="button" onClick={() => acceptInvitation(inv.id)} className="h-9 shrink-0 rounded-full bg-ink px-3.5 text-[13.5px] font-semibold text-white active:scale-95">
+            Accept
+          </button>
+        ) : check.eligible ? (
+          <span className="shrink-0 text-[14px] font-medium text-green">Complimentary</span>
+        ) : (
+          <span className="shrink-0 text-[13px] font-medium text-gray">Not yet</span>
+        )}
       </div>
+
+      {!accepted && <p className="mt-3 text-[13px] text-gray">{inv.condition} · {inv.until}. Accept it and the gift is added to your order free.</p>}
+
+      {accepted && check.eligible && (
+        <p className="mt-3 flex items-center gap-1.5 text-[13px] text-gray">
+          <Check size={15} className="text-green" /> Added to your order free · {inv.condition.toLowerCase()}
+        </p>
+      )}
+
+      {accepted && !check.eligible && (
+        <div className="mt-3 rounded-2xl bg-card p-3.5">
+          <p className="text-[14px] font-medium leading-5 text-ink">{check.reason}</p>
+          <div className="mt-2.5 flex items-center gap-2.5">
+            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white">
+              <span className="block h-full rounded-full bg-ink transition-all duration-500" style={{ width: `${Math.round((check.have / check.need) * 100)}%` }} />
+            </span>
+            <span className="text-[12px] tabular-nums text-gray">
+              {check.have} of {check.need} {check.need === 1 ? inv.requires.noun[0] : inv.requires.noun[1]}
+            </span>
+          </div>
+          {!compact && (
+            <Link href={`/restaurant/${placeId}`} className="mt-3 flex h-10 items-center justify-center rounded-full bg-white text-[14px] font-medium text-ink active:scale-[0.98]">
+              Add {inv.requires.count - check.have === 1 ? `a ${inv.requires.noun[0]}` : `${inv.requires.noun[1]}`}
+            </Link>
+          )}
+        </div>
+      )}
     </section>
   );
 }
