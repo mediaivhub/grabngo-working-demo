@@ -113,7 +113,7 @@ export function RestaurantView() {
               <>
                 <div className="mx-5 mb-2 mt-7">
                   <h2 className="text-[24px] text-ink">{theme.titles?.desserts ?? 'Desserts'}</h2>
-                  <p className="mt-1 text-[14px] text-gray">{desserts.length > 1 ? 'Drag to taste each layer' : 'A little something sweet'}</p>
+                  <p className="mt-1 text-[14px] text-gray">{desserts.length > 1 ? 'Swipe up to see the next one' : 'A little something sweet'}</p>
                 </div>
                 <DessertLayers items={desserts} placeId={place.id} theme={theme} />
               </>
