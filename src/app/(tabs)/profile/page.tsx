@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { avatarSrc } from '@/components/cards';
 import { SettingsRow } from '@/components/settings';
-import { Button, NavHeader } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { plateText } from '@/lib/car';
 import { useStore } from '@/store/AppStore';
 
@@ -24,10 +24,11 @@ export default function ProfileScreen() {
   ];
 
   return (
-    <main className="screen pt-safe bg-surface">
-      <NavHeader title="Profile" />
+    // A tab now: it sits in the tab sheet, so no back button and no own safe-area padding.
+    <main className="relative flex min-h-0 flex-1 flex-col bg-surface">
+      <h1 className="px-5 pb-1 pt-4 text-[26px] font-bold tracking-tight">Profile</h1>
       <div className="scroll flex flex-col">
-        <button type="button" onClick={() => go('/account/details')} className="mt-[18px] flex items-center gap-4 px-5 text-left">
+        <button type="button" onClick={() => go('/account/details')} className="mt-3 flex items-center gap-4 px-5 text-left">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={avatarSrc(user?.avatarUri)} alt="" className="h-16 w-16 rounded-full bg-divider object-cover" />
           <span>
@@ -48,7 +49,7 @@ export default function ProfileScreen() {
             </button>
           ))}
         </div>
-        <div className="pb-safe mt-10 flex-1 rounded-t-[30px] bg-white px-5 pb-10 pt-3.5">
+        <div className="mt-10 flex-1 rounded-t-[30px] bg-white px-5 pb-10 pt-3.5">
           <SettingsRow first Icon={User} title="Account Settings" chevron onClick={() => go('/account/details')} />
           <SettingsRow Icon={Car} title="My Car" subtitle={car ? `${car.make} ${car.model} · ${plateText(car)}` : 'For curbside pickup'} chevron onClick={() => go('/account/car')} />
           <SettingsRow Icon={Bell} title="Notifications" chevron onClick={() => router.push('/account/notifications')} />

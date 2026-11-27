@@ -1,12 +1,12 @@
 'use client';
 
-import { Check, ChevronRight, Clock, Plus, ShoppingBasket, Star, Coffee } from 'lucide-react';
+import { Check, ChevronRight, Clock, Coffee, Footprints, MapPin, Navigation, Plus, ShoppingBasket, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useCartBump } from '@/components/CartFly';
 import { cx, Pill, Price } from '@/components/ui';
-import { getProduct, type Place, type Product } from '@/data/mock';
+import { getPlace, getProduct, type Place, type Product } from '@/data/mock';
 import { useCountdown } from '@/lib/useCountdown';
 import { useStore, type Order } from '@/store/AppStore';
 
@@ -16,7 +16,7 @@ export function avatarSrc(uri?: string) {
 
 /** Logo + basket + avatar row used on the Home, Map and Orders tabs. */
 export function AppHeader() {
-  const { cartCount, user } = useStore();
+  const { cartCount } = useStore();
   const bump = useCartBump();
   return (
     <div className="flex items-center justify-between px-5 py-4">
@@ -24,13 +24,12 @@ export function AppHeader() {
         Grab<span className="text-brand">n</span>Go
       </span>
       <div className="flex items-center gap-3">
-        <Link key={bump} data-cart-target href="/cart" aria-label={`Cart, ${cartCount} items`} className={cx('flex h-11 min-w-[66px] items-center justify-center gap-1.5 rounded-full bg-surface px-3.5', bump > 0 && 'cart-bump')}>
-          <ShoppingBasket size={22} fill="currentColor" />
-          <span className="text-[18px] font-medium tabular-nums">{cartCount}</span>
-        </Link>
-        <Link href="/profile" aria-label="Profile">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={avatarSrc(user?.avatarUri)} alt="" className="h-11 w-11 rounded-full object-cover" />
+        {/* Profile lives in the tab bar now; the header keeps just the cart, with a count only when there's something in it. */}
+        <Link key={bump} data-cart-target href="/cart" aria-label={`Cart, ${cartCount} items`} className={cx('relative grid h-11 w-11 place-items-center rounded-full bg-surface', bump > 0 && 'cart-bump')}>
+          <ShoppingBasket size={21} fill="currentColor" />
+          {cartCount > 0 && (
+            <span className="absolute -right-1 -top-1 grid h-[22px] min-w-[22px] place-items-center rounded-full bg-brand px-1.5 text-[12px] font-semibold tabular-nums text-white ring-2 ring-white">{cartCount}</span>
+          )}
         </Link>
       </div>
     </div>
@@ -137,29 +136,54 @@ export function ProgressRing({ progress, size = 104, stroke = 16 }: { progress: 
   );
 }
 
-const clock = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-/** Floating "Preparing your order" card on Home while an order is live. */
+/**
+ * Floating live order bar on Home. Compact (it shouldn't cover the page) and it says what's
+ * actually happening: kitchen time, the drive in, arrival, who's walking out, collected.
+ */
 export function LiveOrderCard({ order }: { order: Order }) {
-  const { progress, done } = useCountdown(order.createdAt, order.readyAt);
+  const { progress, done, label } = useCountdown(order.createdAt, order.readyAt);
+  const place = getPlace(order.placeId);
+  const curbside = !!order.car;
+  const ready = done || order.status === 'ready';
+  const bay = order.bay ?? 3;
+
+  let title: string;
+  let sub: string;
+  let tone = 'bg-orange';
+  let icon: ReactNode = <Coffee size={17} />;
+  if (order.handedAt) {
+    [title, sub, tone, icon] = ['Collected. Enjoy.', 'Tap to rate your order', 'bg-green', <Check key="c" size={18} />];
+  } else if (order.walkingAt) {
+    [title, sub, tone, icon] = [`${order.staff} is walking out`, `To your car in Bay ${bay}`, 'bg-orange', <Footprints key="f" size={17} />];
+  } else if (order.arrivedAt) {
+    [title, sub, tone, icon] = [`You’re in Bay ${bay}`, `${place?.name} knows you’re here`, 'bg-brand', <MapPin key="m" size={17} />];
+  } else if (curbside && order.trip) {
+    title = `${order.trip.s < 60 ? 'Under a minute' : `${Math.round(order.trip.s / 60)} min`} away`;
+    sub = ready ? 'Your order is ready and kept hot' : `Ready in ${label} · ${place?.name}`;
+    icon = <Navigation key="n" size={15} className="rotate-45" fill="currentColor" />;
+  } else if (ready) {
+    [title, sub, tone, icon] = ['Ready for pickup', curbside ? 'Head over, we’ll bring it to your car' : 'Show your code at the counter', 'bg-green', <Check key="c" size={18} />];
+  } else {
+    title = `Ready in ${label}`;
+    sub = `${place?.name} · ${curbside ? 'curbside' : 'counter'} pickup`;
+  }
+
   return (
     <Link
       href="/order/status"
       aria-label="Open order status"
-      className="flex items-center rounded-[36px] bg-black py-2.5 pl-[22px] pr-2.5 shadow-[0_8px_18px_rgba(0,0,0,0.3)] fade-in">
-      <div className="min-w-0 flex-1">
-        <p className="text-[30px] font-bold tracking-tight text-white">
-          {clock(order.readyAt)} - {clock(order.readyAt + 14 * 60 * 1000)}
-        </p>
-        <p className="mt-1.5 text-[14px] font-semibold text-white">{done ? 'Ready for pickup' : 'Preparing your order'}</p>
-        <p className="truncate text-[13px] text-[#9A9A9A]">{done ? 'Show your QR code at the counter.' : 'When it’s ready, you can pick up your order.'}</p>
-      </div>
-      <div className="relative flex h-[104px] w-[104px] items-center justify-center">
-        <ProgressRing progress={progress} />
-        <span className="absolute flex h-[46px] w-[46px] items-center justify-center rounded-full bg-orange text-white">
-          {done ? <Check size={22} /> : <Coffee size={22} />}
+      className="fade-in flex h-[68px] items-center gap-3 rounded-full bg-black py-2 pl-2 pr-4 shadow-[0_10px_24px_rgba(0,0,0,0.28)]">
+      <span className="relative grid h-[52px] w-[52px] shrink-0 place-items-center">
+        <span className="absolute inset-0">
+          <ProgressRing progress={order.handedAt || ready ? 1 : progress} size={52} stroke={4} />
         </span>
-      </div>
+        <span className={cx('grid h-9 w-9 place-items-center rounded-full text-white', tone)}>{icon}</span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[16px] font-semibold tabular-nums text-white">{title}</span>
+        <span className="block truncate text-[12.5px] text-white/60">{sub}</span>
+      </span>
+      <ChevronRight size={18} className="shrink-0 text-white/50" />
     </Link>
   );
 }

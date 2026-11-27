@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Gift, Plus, RotateCcw, TrendingUp, X } from 'lucide-react';
+import { ChevronRight, Clock, Gift, Plus, RotateCcw, TrendingUp, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -8,6 +8,8 @@ import { createPortal } from 'react-dom';
 import { ProductTile } from '@/components/cards';
 import { cx, Price } from '@/components/ui';
 import { getMenu, getPlace, menuProduct, places, products, type Place, type Product } from '@/data/mock';
+import { openStatus } from '@/lib/hours';
+import { dayPart, distanceKm, driveMinutes, readyMinutes, type DayPart } from '@/lib/pickup';
 import { useNow } from '@/lib/useNow';
 import { InvitationsSheet } from '@/components/Invitations';
 import { invitationFor } from '@/lib/invitations';
@@ -20,6 +22,13 @@ function greeting(now: number | null) {
   return h < 5 ? 'Late night cravings' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
+const GREETING_LINE: Record<DayPart, string> = {
+  morning: 'Coffee first?',
+  midday: 'Something cold for the heat?',
+  evening: 'Something sweet tonight?',
+  late: 'A few places are still open near you.',
+};
+
 export function SmartGreeting() {
   const router = useRouter();
   const now = useNow(60_000);
@@ -28,7 +37,7 @@ export function SmartGreeting() {
   const place = last ? getPlace(last.placeId) : undefined;
   const first = last ? products.find((p) => p.id === last.lines[0]?.productId) : undefined;
   const more = last ? last.lines.length - 1 : 0;
-  const eta = place?.eta.match(/\d+/)?.[0] ?? '10';
+  const eta = place ? readyMinutes(place) : 10;
 
   return (
     <div className="mx-5">
@@ -36,7 +45,7 @@ export function SmartGreeting() {
         {greeting(now)}
         {user?.nickname && user.nickname !== 'Guest' ? `, ${user.nickname}` : ''}
       </h1>
-      <p className="mt-0.5 text-[15px] text-gray">What are we grabbing today?</p>
+      <p className="mt-0.5 text-[15px] text-gray">{GREETING_LINE[dayPart(now)]}</p>
 
       {last && first && place && (
         <div className="mt-4 flex items-center gap-3.5 overflow-hidden rounded-[24px] bg-[#141414] p-3.5 pr-3 text-white">
@@ -301,14 +310,20 @@ export function HeroCarousel() {
                 <img src={d.place.hero} alt="" className="absolute inset-0 h-full w-[130%] max-w-none object-cover" style={{ transform: `translateX(${Math.round(-15 + dx * 60)}px)` }} />
                 <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(0,0,0,0.72)_0%,rgba(0,0,0,0.25)_55%,rgba(0,0,0,0)_100%)]" />
                 <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11.5px] font-semibold text-ink backdrop-blur">
-                  <Clock size={12} /> Ready in {d.place.eta}
+                  <Clock size={12} /> Ready in {readyMinutes(d.place)} min
                 </span>
-                <div className="absolute bottom-4 left-4 right-24 text-white">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">New at {d.place.name}</p>
-                  <p className="mt-1 text-[22px] font-bold leading-6 tracking-tight">{d.dish.name}</p>
+                <div className="absolute bottom-4 left-4 w-[56%] text-white">
+                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">New at {d.place.name}</p>
+                  <p className="mt-1 line-clamp-2 text-[21px] font-bold leading-[25px] tracking-tight">{d.dish.name}</p>
                 </div>
+                {/* the dish, in its own space on the right */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={d.dish.image} alt="" className="absolute -bottom-3 right-3 h-[104px] w-[104px] rounded-full border-4 border-white/90 object-cover shadow-xl" style={{ transform: `translateX(${Math.round(dx * -30)}px)` }} />
+                <img
+                  src={d.dish.image}
+                  alt=""
+                  className="absolute bottom-5 right-4 h-[112px] w-[112px] rounded-full border-4 border-white/90 bg-white object-cover shadow-[0_18px_30px_-10px_rgba(0,0,0,0.6)]"
+                  style={{ transform: `translateX(${Math.round(dx * -30)}px)` }}
+                />
               </div>
             </Link>
           );
@@ -334,13 +349,25 @@ const CRAVINGS: { id: string; label: string; pick: (p: Product) => boolean }[] =
   { id: 'new', label: 'New today', pick: (p) => p.categories.includes('new') },
 ];
 
+const CRAVING_FOR: Record<DayPart, { id: string; title: string }> = {
+  morning: { id: 'coffee', title: 'Your morning coffee' },
+  midday: { id: 'iced', title: 'Something cold?' },
+  evening: { id: 'sweet', title: 'Something sweet tonight?' },
+  late: { id: 'bite', title: 'A late bite?' },
+};
+
 export function CravingPicks() {
-  const [sel, setSel] = useState('for-you');
+  const now = useNow(60_000);
+  const auto = CRAVING_FOR[dayPart(now)];
+  // Follows the time of day until the customer picks a chip themselves.
+  const [picked, setPicked] = useState<string | null>(null);
+  const sel = picked ?? auto.id;
+  const setSel = setPicked;
   const craving = CRAVINGS.find((c) => c.id === sel)!;
   const list = products.filter(craving.pick).slice(0, 10);
   return (
     <div className="mt-7">
-      <h2 className="mx-5 text-[21px] text-ink">What are you craving?</h2>
+      <h2 className="mx-5 text-[21px] text-ink">{picked ? 'What are you craving?' : auto.title}</h2>
       <div className="hscroll mt-3 gap-2 px-5">
         {CRAVINGS.map((c) => (
           <button
@@ -357,6 +384,61 @@ export function CravingPicks() {
           <div key={p.id} className="slide-in-right shrink-0" style={{ animationDelay: `${i * 45}ms` }}>
             <ProductTile product={p} placeId={p.placeId} className="min-h-[170px] w-[122px] shrink-0" imageSize={96} />
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Ready fast, near you ---------------- */
+
+/**
+ * Order-ahead is about time, so this row says it plainly: places sorted by how soon
+ * you could have your order in hand (the longer of the kitchen and your drive).
+ */
+export function ReadyFast() {
+  const now = useNow(60_000);
+  const list = places
+    .map((p) => {
+      const ready = readyMinutes(p);
+      const drive = driveMinutes(p);
+      return { p, ready, drive, inHand: Math.max(ready, drive), open: now ? openStatus(p.schedule, new Date(now)).open : true };
+    })
+    .filter((x) => x.open)
+    .sort((a, b) => a.inHand - b.inHand)
+    .slice(0, 6);
+  if (!list.length) return null;
+
+  return (
+    <div className="mt-7">
+      <div className="mx-5 flex items-end justify-between">
+        <div>
+          <h2 className="text-[21px] text-ink">Ready fast, near you</h2>
+          <p className="mt-0.5 text-[13px] text-gray">Sorted by how soon it’s in your hands</p>
+        </div>
+        <Link href="/places/cafes" className="flex items-center gap-0.5 pb-0.5 text-[14px] text-gray">
+          All <ChevronRight size={16} />
+        </Link>
+      </div>
+      <div className="hscroll mt-3.5 gap-2.5 px-5">
+        {list.map(({ p, inHand }, i) => (
+          <Link key={p.id} href={`/restaurant/${p.id}`} className="w-[232px] shrink-0 rounded-[24px] bg-card p-2 transition active:scale-[0.98]">
+            <div className="relative h-[118px] overflow-hidden rounded-[18px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.image} alt="" className="h-full w-full object-cover" />
+              <span className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-full bg-white/92 px-2.5 py-1 text-[12px] font-semibold text-ink backdrop-blur">
+                <span className="h-1.5 w-1.5 rounded-full bg-green" /> Open
+              </span>
+              {i === 0 && <span className="absolute right-2.5 top-2.5 rounded-full bg-ink px-2.5 py-1 text-[11.5px] font-semibold text-white">Fastest</span>}
+            </div>
+            <div className="px-2 pb-1.5 pt-2.5">
+              <p className="truncate text-[15.5px] font-medium text-ink">{p.name}</p>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span className="text-[20px] font-bold tabular-nums tracking-tight text-ink">{inHand} min</span>
+                <span className="truncate text-[12.5px] text-gray">to pickup · {distanceKm(p)} km</span>
+              </div>
+            </div>
+          </Link>
         ))}
       </div>
     </div>
