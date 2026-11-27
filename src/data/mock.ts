@@ -17,6 +17,10 @@ export type Place = {
   schedule: WeekSchedule;
   /** Position on the stylised map, 0..1 */
   map: { x: number; y: number };
+  /** Real-world position, used to track the customer's drive in. */
+  geo: { lat: number; lng: number };
+  /** Staff who walk curbside orders out. */
+  staff: string[];
 };
 
 export type Category = 'for-you' | 'new' | 'coffee' | 'cold-coffee' | 'not-coffee' | 'food' | 'dessert';
@@ -126,6 +130,8 @@ const seeds: PlaceSeed[] = [
   ['fresh-roast', 'Fresh Roast Coffee House', 'cafe', img.n[4], '35-40 mins', 4.2, 0.4, 0.37],
 ];
 
+const STAFF = ['Ahmed', 'Layla', 'Omar', 'Sara', 'Yousef'];
+
 export const places: Place[] = seeds.map(([id, name, kind, image, eta, rating, x, y]) => ({
   id,
   name,
@@ -138,6 +144,9 @@ export const places: Place[] = seeds.map(([id, name, kind, image, eta, rating, x
   details: DETAILS,
   schedule: id === 'orfali' ? WEEKDAYS_ONLY : ALL_WEEK,
   map: { x, y },
+  // Spread around Al Fahidi, Bur Dubai, in the same layout as the stylised map.
+  geo: { lat: 25.2637 + (0.5 - y) * 0.04, lng: 55.2972 + (x - 0.5) * 0.05 },
+  staff: STAFF.slice((seeds.findIndex((s) => s[0] === id) + 2) % 3).concat(STAFF).slice(0, 3),
 }));
 
 /** Where the user is on the stylised map. */

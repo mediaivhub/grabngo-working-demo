@@ -35,9 +35,23 @@ export type Order = {
   carPlate?: string;
   /** Set for curbside orders: the car staff walk the order out to. */
   car?: Car;
-  /** When the customer tapped "I've arrived". */
+  /** When the customer arrived (detected by location, or tapped "I've arrived"). */
   arrivedAt?: number;
+  /** Curbside bay the order is brought to. */
+  bay?: number;
+  /** Where in the bay, sent by the customer in one tap ("Left side"). */
+  spot?: { label: string; at: number };
+  /** The staff member walking the order out, and when they set off. */
+  staff?: string;
+  walkingAt?: number;
+  /** When the order was handed over at the car. */
+  handedAt?: number;
+  /** The customer's live drive in, shared with the restaurant: metres away and seconds to arrive. */
+  trip?: { m: number; s: number; at: number; demo?: boolean };
 };
+
+/** Where the customer can say they've parked, in one tap. */
+export const SPOTS = ['Left side', 'Right side', 'By the entrance'] as const;
 
 export type User = { fullName: string; nickname: string; phone: string; dob?: string; avatarUri?: string };
 
@@ -131,7 +145,7 @@ const initialState: State = {
     emailReceipts: false,
   },
   chat: [
-    { id: 'c1', from: 'agent', text: 'Hi! 👋 I’m the GrabnGo support team. How can we help with your order today?', at: 0 },
+    { id: 'c1', from: 'agent', text: 'Hi, I’m the GrabnGo support team. How can we help with your order today?', at: 0 },
     { id: 'c2', from: 'me', text: 'I lost the QR code for my pickup.', at: 0 },
     { id: 'c3', from: 'agent', text: 'No worries! I’ve generated a new one — you’ll find it under Order Status → Show QR code.', at: 0 },
     { id: 'c4', from: 'me', text: 'Got it! Thanks.', at: 0 },
@@ -162,7 +176,9 @@ type Action =
   | { type: 'car'; car: Car | null }
   | { type: 'acceptInvitation'; id: string }
   | { type: 'pickup'; mode: PickupMode }
-  | { type: 'arrived'; id: string; at: number };
+  | { type: 'arrived'; id: string; at: number }
+  | { type: 'patchOrder'; id: string; patch: Partial<Order> }
+  | { type: 'syncOrders'; orders: Order[] };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -250,7 +266,12 @@ function reducer(state: State, action: Action): State {
     case 'pickup':
       return { ...state, cart: { ...state.cart, pickup: action.mode } };
     case 'arrived':
-      return { ...state, orders: state.orders.map((o) => (o.id === action.id ? { ...o, arrivedAt: action.at } : o)) };
+      return { ...state, orders: state.orders.map((o) => (o.id === action.id && !o.arrivedAt ? { ...o, arrivedAt: action.at } : o)) };
+    case 'patchOrder':
+      return { ...state, orders: state.orders.map((o) => (o.id === action.id ? { ...o, ...action.patch } : o)) };
+    case 'syncOrders':
+      // Another tab (e.g. the restaurant screen) changed an order: take its copy, unless it's the same.
+      return JSON.stringify(action.orders) === JSON.stringify(state.orders) ? state : { ...state, orders: action.orders };
   }
 }
 
@@ -275,6 +296,19 @@ function useStoreValue() {
       if (raw) saved = JSON.parse(raw) as Partial<State>;
     } catch {}
     dispatch({ type: 'hydrate', state: { ...saved, prefs: { ...initialState.prefs, ...saved.prefs } } });
+  }, []);
+
+  // Live sync between tabs on this device: the customer app and the restaurant screen share orders.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY || !e.newValue) return;
+      try {
+        const orders = (JSON.parse(e.newValue) as Partial<State>).orders;
+        if (orders) dispatch({ type: 'syncOrders', orders });
+      } catch {}
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   useEffect(() => {
@@ -329,7 +363,7 @@ function useStoreValue() {
         status: 'preparing',
         favorite: false,
         payment,
-        ...(state.cart.pickup === 'car' && state.car ? { car: state.car, carPlate: plateText(state.car) } : {}),
+        ...(state.cart.pickup === 'car' && state.car ? { car: state.car, carPlate: plateText(state.car), bay: (now % 6) + 1 } : {}),
       };
       dispatch({ type: 'placeOrder', order });
       return order.id;
@@ -359,6 +393,10 @@ function useStoreValue() {
       acceptInvitation: (id: string) => dispatch({ type: 'acceptInvitation', id }),
       setPickupMode: (mode: PickupMode) => dispatch({ type: 'pickup', mode }),
       markArrived: (id: string) => dispatch({ type: 'arrived', id, at: Date.now() }),
+      patchOrder: (id: string, patch: Partial<Order>) => dispatch({ type: 'patchOrder', id, patch }),
+      sendSpot: (id: string, label: string) => dispatch({ type: 'patchOrder', id, patch: { spot: { label, at: Date.now() } } }),
+      walkOut: (id: string, staff: string) => dispatch({ type: 'patchOrder', id, patch: { staff, walkingAt: Date.now(), status: 'ready' } }),
+      handOver: (id: string) => dispatch({ type: 'patchOrder', id, patch: { handedAt: Date.now(), status: 'ready' } }),
       login: (user: User) => {
         setOnboarded();
         dispatch({ type: 'login', user });
