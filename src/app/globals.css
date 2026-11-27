@@ -476,3 +476,13 @@ input {
     linear-gradient(#000 0 0) top / 100% calc(100% - var(--z)) no-repeat,
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--z)) var(--z) repeat-x;
 }
+
+/* One-tap reorder: the "tap again" window draining away */
+@keyframes arm-drain {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+.arm-drain { animation: arm-drain 3.5s linear forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .arm-drain { animation: none; }
+}

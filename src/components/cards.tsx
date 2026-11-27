@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronRight, Clock, Coffee, Footprints, MapPin, Navigation, Plus, ShoppingBasket, Star } from 'lucide-react';
+import { Check, ChevronRight, Clock, Coffee, Footprints, Hand, MapPin, Navigation, Plus, ShoppingBasket, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -8,7 +8,7 @@ import { useCartBump } from '@/components/CartFly';
 import { cx, Pill, Price } from '@/components/ui';
 import { getPlace, getProduct, type Place, type Product } from '@/data/mock';
 import { useCountdown } from '@/lib/useCountdown';
-import { useStore, type Order } from '@/store/AppStore';
+import { isHeld, kitchenStart, useStore, type Order } from '@/store/AppStore';
 
 export function avatarSrc(uri?: string) {
   return uri || '/images/misc/avatar.png';
@@ -141,10 +141,15 @@ export function ProgressRing({ progress, size = 104, stroke = 16 }: { progress: 
  * actually happening: kitchen time, the drive in, arrival, who's walking out, collected.
  */
 export function LiveOrderCard({ order }: { order: Order }) {
-  const { progress, done, label } = useCountdown(order.createdAt, order.readyAt);
+  const held = isHeld(order);
+  const countdown = useCountdown(kitchenStart(order), order.readyAt);
+  const { label } = countdown;
+  const progress = held ? 0 : countdown.progress;
+  const done = countdown.done && !held;
   const place = getPlace(order.placeId);
   const curbside = !!order.car;
   const ready = done || order.status === 'ready';
+  const prepMin = Math.round((order.hold?.prepSec ?? 0) / 60);
   const bay = order.bay ?? 3;
 
   let title: string;
@@ -157,6 +162,10 @@ export function LiveOrderCard({ order }: { order: Order }) {
     [title, sub, tone, icon] = [`${order.staff} is walking out`, `To your car in Bay ${bay}`, 'bg-orange', <Footprints key="f" size={17} />];
   } else if (order.arrivedAt) {
     [title, sub, tone, icon] = [`You’re in Bay ${bay}`, `${place?.name} knows you’re here`, 'bg-brand', <MapPin key="m" size={17} />];
+  } else if (held) {
+    title = order.hold?.mode === 'arrive' ? (order.trip ? `${Math.round(order.trip.s / 60)} min away · kitchen waiting` : 'Starts as you drive in') : 'Paid · starts when you say';
+    sub = `Tap to start · ${place?.name} needs ${prepMin} min`;
+    [tone, icon] = ['bg-[#3a3a3c]', <Hand key="h" size={16} />];
   } else if (curbside && order.trip) {
     title = `${order.trip.s < 60 ? 'Under a minute' : `${Math.round(order.trip.s / 60)} min`} away`;
     sub = ready ? 'Your order is ready and kept hot' : `Ready in ${label} · ${place?.name}`;

@@ -13,6 +13,7 @@ import { dayPart, distanceKm, driveMinutes, readyMinutes, type DayPart } from '@
 import { useNow } from '@/lib/useNow';
 import { InvitationsSheet } from '@/components/Invitations';
 import { invitationFor } from '@/lib/invitations';
+import { orderTotals } from '@/lib/pricing';
 import { useStore } from '@/store/AppStore';
 
 /* ---------------- Smart greeting + one-tap reorder ---------------- */
@@ -29,15 +30,45 @@ const GREETING_LINE: Record<DayPart, string> = {
   late: 'A few places are still open near you.',
 };
 
+const USUAL_WORD: Record<DayPart, string> = { morning: 'morning', midday: 'lunch', evening: 'evening', late: 'late-night' };
+
 export function SmartGreeting() {
   const router = useRouter();
   const now = useNow(60_000);
-  const { user, orders, reorder } = useStore();
-  const last = orders.find((o) => o.status === 'completed') ?? orders[0];
+  const { user, orders, reorder, submitOrder, car, cards, defaultPayment, activeOrder } = useStore();
+  const part = dayPart(now);
+  const done = orders.filter((o) => o.status === 'completed');
+  // The usual for this time of day: the latest order placed in the same part of the day.
+  const last = done.find((o) => dayPart(o.createdAt) === part) ?? done[0] ?? orders[0];
   const place = last ? getPlace(last.placeId) : undefined;
   const first = last ? products.find((p) => p.id === last.lines[0]?.productId) : undefined;
-  const more = last ? last.lines.length - 1 : 0;
+  const paidLines = last ? last.lines.filter((l) => l.unitPrice > 0) : [];
+  const more = paidLines.length - 1;
   const eta = place ? readyMinutes(place) : 10;
+  const sameTime = !!last && dayPart(last.createdAt) === part;
+
+  // One tap arms it, the second tap (within a few seconds) pays. No cart, no checkout.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 3500);
+    return () => clearTimeout(t);
+  }, [armed]);
+  const card = cards.find((c) => c.id === defaultPayment);
+  const method = defaultPayment === 'apple-pay' || defaultPayment === 'google-pay' ? defaultPayment : card ? 'card' : 'apple-pay';
+  const payLabel = method === 'card' && card ? `•••• ${card.last4}` : method === 'google-pay' ? 'Google Pay' : 'Apple Pay';
+  const total = last ? orderTotals(paidLines).total : 0;
+
+  const go = () => {
+    if (!last) return;
+    if (!armed) {
+      navigator.vibrate?.(8);
+      return setArmed(true);
+    }
+    navigator.vibrate?.([10, 40, 10]);
+    submitOrder(method, { placeId: last.placeId, lines: paidLines, pickup: car ? 'car' : 'counter', timing: car ? 'arrive' : 'say' });
+    router.push('/order/status');
+  };
 
   return (
     <div className="mx-5">
@@ -45,37 +76,55 @@ export function SmartGreeting() {
         {greeting(now)}
         {user?.nickname && user.nickname !== 'Guest' ? `, ${user.nickname}` : ''}
       </h1>
-      <p className="mt-0.5 text-[15px] text-gray">{GREETING_LINE[dayPart(now)]}</p>
+      <p className="mt-0.5 text-[15px] text-gray">{GREETING_LINE[part]}</p>
 
-      {last && first && place && (
-        <div className="mt-4 flex items-center gap-3.5 overflow-hidden rounded-[24px] bg-[#141414] p-3.5 pr-3 text-white">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={first.image} alt="" className="h-[66px] w-[66px] shrink-0 rounded-2xl bg-white object-cover" />
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">Your usual</p>
-            <p className="truncate text-[16px] font-semibold">
-              {first.name}
-              {more > 0 && <span className="font-normal text-white/60"> +{more} more</span>}
-            </p>
-            <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[12.5px] text-white/70">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-green" />
-              </span>
-              <span className="truncate">
-                Ready in ~{eta} min · {place.name}
-              </span>
-            </p>
+      {last && first && place && !activeOrder && (
+        <div className="mt-4 overflow-hidden rounded-[24px] bg-[#141414] p-3.5 text-white">
+          <div className="flex items-center gap-3.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={first.image} alt="" className="h-[66px] w-[66px] shrink-0 rounded-2xl bg-white object-cover" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">{sameTime ? `Your ${USUAL_WORD[part]} usual` : 'Your usual'}</p>
+              <p className="truncate text-[16px] font-semibold">
+                {first.name}
+                {more > 0 && <span className="font-normal text-white/60"> +{more} more</span>}
+              </p>
+              <p className="mt-1 truncate text-[12.5px] text-white/65">
+                {car ? `Hot when you pull in · ${place.name}` : `Starts when you say · ${place.name}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Change it first"
+              onClick={() => {
+                reorder(last);
+                router.push('/cart');
+              }}
+              className="grid h-10 w-10 shrink-0 place-items-center self-start rounded-full bg-white/10 text-white/80 active:scale-95">
+              <RotateCcw size={15} />
+            </button>
           </div>
           <button
             type="button"
-            onClick={() => {
-              reorder(last);
-              router.push('/cart');
-            }}
-            className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[14px] font-semibold text-ink active:scale-95">
-            <RotateCcw size={15} /> Reorder
+            onClick={go}
+            className={cx(
+              'relative mt-3.5 flex h-[50px] w-full items-center justify-center gap-2 overflow-hidden rounded-full text-[15px] font-semibold transition-colors active:scale-[0.99]',
+              armed ? 'bg-brand text-white' : 'bg-white text-ink',
+            )}>
+            {armed && <span key="arm" className="arm-drain absolute inset-y-0 left-0 bg-black/15" />}
+            <span className="relative">
+              {armed ? (
+                <>
+                  Tap again to pay <Price amount={total} size={15} color="currentColor" weight={700} fixed /> · {payLabel}
+                </>
+              ) : car ? (
+                `Order it, ready as I arrive`
+              ) : (
+                `Order it, start when I say`
+              )}
+            </span>
           </button>
+          <p className="mt-2 text-center text-[11.5px] text-white/45">{car ? `${place.name} starts it when you’re ${eta} min away` : `${place.name} needs about ${eta} min`}</p>
         </div>
       )}
     </div>

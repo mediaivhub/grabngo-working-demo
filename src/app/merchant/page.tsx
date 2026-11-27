@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Footprints, MapPin } from 'lucide-react';
+import { Check, ChefHat, Footprints, MapPin, Pause } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Car3DView, PlateBadge } from '@/components/car';
 import { ago, MERCHANT_SEEN_KEY } from '@/components/Curbside';
@@ -10,7 +10,7 @@ import { getPlace, getProduct } from '@/data/mock';
 import { carName, model3dFor } from '@/lib/car';
 import { formatDistance, formatEta } from '@/lib/journey';
 import { useNow } from '@/lib/useNow';
-import { useStore, type Order } from '@/store/AppStore';
+import { isHeld, useStore, type Order } from '@/store/AppStore';
 
 /**
  * The restaurant's curbside screen (a staff phone or a tablet at the door).
@@ -76,7 +76,9 @@ export default function MerchantScreen() {
 }
 
 function CarCard({ order, now }: { order: Order; now: number | null }) {
-  const { walkOut, handOver, setOrderStatus } = useStore();
+  const { walkOut, handOver, setOrderStatus, startKitchen } = useStore();
+  const held = isHeld(order);
+  const prepMin = Math.round((order.hold?.prepSec ?? 0) / 60);
   const place = getPlace(order.placeId);
   const car = order.car!;
   const model = model3dFor(car);
@@ -85,12 +87,14 @@ function CarCard({ order, now }: { order: Order; now: number | null }) {
   const arrived = !!order.arrivedAt;
   const needsSomeone = arrived && !order.walkingAt;
   const prepLeft = now ? Math.max(0, Math.ceil((order.readyAt - now) / 1000)) : null;
-  const ready = order.status === 'ready' || prepLeft === 0;
+  const ready = !held && (order.status === 'ready' || prepLeft === 0);
 
   let state: { text: string; tone: string };
   if (order.handedAt) state = { text: `Handed over ${ago(order.handedAt, now)}`, tone: 'bg-green text-white' };
   else if (order.walkingAt) state = { text: `${order.staff} walking out`, tone: 'bg-white text-black' };
   else if (arrived) state = { text: `Arrived ${ago(order.arrivedAt!, now)}`, tone: 'bg-[#ff3b30] text-white' };
+  else if (held && order.trip) state = { text: `Held · ${formatEta(order.trip.s)} away`, tone: 'bg-[#ffd60a] text-black' };
+  else if (held) state = { text: 'Held · paid', tone: 'bg-[#ffd60a] text-black' };
   else if (order.trip) state = { text: `${formatEta(order.trip.s)} away · ${formatDistance(order.trip.m)}`, tone: 'bg-white/12 text-white' };
   else state = { text: 'On the way', tone: 'bg-white/12 text-white' };
 
@@ -121,10 +125,24 @@ function CarCard({ order, now }: { order: Order; now: number | null }) {
         <p className="mt-3 text-[13.5px] leading-5 text-white/70">
           {order.lines.map((l) => `${l.qty}× ${getProduct(l.productId)?.name}${l.unitPrice === 0 ? ' (invitation)' : ''}`).join(' · ')}
         </p>
-        <p className={cx('mt-1 text-[12.5px]', ready ? 'text-green' : 'text-white/45')}>
-          {ready ? 'Ready to go out' : `Kitchen · ready in ${prepLeft === null ? '--' : `${Math.floor(prepLeft / 60)}:${String(prepLeft % 60).padStart(2, '0')}`}`}
-          {order.trip?.demo && !arrived ? ' · demo drive' : ''}
-        </p>
+        {held ? (
+          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#ffd60a]/10 p-3">
+            <Pause size={18} className="shrink-0 text-[#ffd60a]" />
+            <p className="min-w-0 flex-1 text-[13px] leading-[18px] text-white/80">
+              <b className="font-semibold text-white">Don’t start yet.</b>{' '}
+              {order.hold?.mode === 'arrive' ? `Starts by itself when they’re ${prepMin} min away.` : 'The customer starts it from their phone.'}
+            </p>
+            <button type="button" onClick={() => startKitchen(order.id)} className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 text-[13px] font-medium active:scale-95">
+              <ChefHat size={14} /> Start now
+            </button>
+          </div>
+        ) : (
+          <p className={cx('mt-1 text-[12.5px]', ready ? 'text-green' : 'text-white/45')}>
+            {ready ? 'Ready to go out' : `Kitchen · ready in ${prepLeft === null ? '--' : `${Math.floor(prepLeft / 60)}:${String(prepLeft % 60).padStart(2, '0')}`}`}
+            {order.firedAt && order.hold?.mode === 'arrive' && !ready ? ' · timed to their arrival' : ''}
+            {order.trip?.demo && !arrived ? ' · demo drive' : ''}
+          </p>
+        )}
 
         {order.handedAt ? (
           <button type="button" onClick={() => setOrderStatus(order.id, 'completed')} className="mt-4 h-11 w-full rounded-full bg-white/10 text-[14px] font-medium text-white/80 active:scale-[0.99]">

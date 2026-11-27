@@ -20,12 +20,23 @@ export const ARRIVE_M = 120;
 const FAR_M = 30_000;
 /** Average city speed when the phone doesn't report one: about 32 km/h. */
 const CITY_MPS = 9;
-/** The demo drive: from 3.2 km out, arriving in 40 seconds. */
+/** The demo drive: from 3.2 km out (further when the kitchen waits for you), arriving in 40 seconds. */
 const DEMO_FROM = 3200;
 const DEMO_SECONDS = 40;
+/** Metres that take `sec` seconds at city speed. */
+export const metresFor = (sec: number) => sec * CITY_MPS;
 
 export type JourneyMode = 'locating' | 'live' | 'off' | 'far' | 'demo';
-export type Journey = { mode: JourneyMode; metres: number | null; etaSec: number | null; startM: number; startDemo: () => void; retry: () => void };
+export type Journey = {
+  mode: JourneyMode;
+  metres: number | null;
+  etaSec: number | null;
+  /** The demo runs sped up; this is when it really ends (ms), so the kitchen can finish in step. */
+  demoEndsAt: number | null;
+  startM: number;
+  startDemo: () => void;
+  retry: () => void;
+};
 
 /**
  * The customer's drive to the restaurant, from the phone's location.
@@ -33,7 +44,7 @@ export type Journey = { mode: JourneyMode; metres: number | null; etaSec: number
  * the order screen stays on during the drive. If location is off or the customer is far away,
  * a demo drive shows how it works.
  */
-export function useJourney(place: Place | undefined, active: boolean): Journey {
+export function useJourney(place: Place | undefined, active: boolean, demoFrom = DEMO_FROM): Journey {
   const [fix, setFix] = useState<{ m: number; speed: number | null; first: number } | null>(null);
   const [error, setError] = useState(false);
   const [demoAt, setDemoAt] = useState<number | null>(null);
@@ -64,17 +75,18 @@ export function useJourney(place: Place | undefined, active: boolean): Journey {
     setAttempt((a) => a + 1);
   }, []);
 
+  const base = { demoEndsAt: null, startDemo, retry };
   if (demoAt) {
     const t = now ? Math.min(1, (now - demoAt) / 1000 / DEMO_SECONDS) : 0;
     // Ease out: slower as you pull in, like a real arrival.
-    const metres = Math.round(DEMO_FROM * (1 - t) ** 1.6);
-    return { mode: 'demo', metres, etaSec: Math.round(metres / CITY_MPS), startM: DEMO_FROM, startDemo, retry };
+    const metres = Math.round(demoFrom * (1 - t) ** 1.6);
+    return { ...base, mode: 'demo', metres, etaSec: Math.round(metres / CITY_MPS), startM: demoFrom, demoEndsAt: demoAt + DEMO_SECONDS * 1000 };
   }
-  if (error && !fix) return { mode: 'off', metres: null, etaSec: null, startM: DEMO_FROM, startDemo, retry };
-  if (!fix) return { mode: 'locating', metres: null, etaSec: null, startM: DEMO_FROM, startDemo, retry };
-  if (fix.m > FAR_M) return { mode: 'far', metres: fix.m, etaSec: null, startM: fix.first, startDemo, retry };
+  if (error && !fix) return { ...base, mode: 'off', metres: null, etaSec: null, startM: demoFrom };
+  if (!fix) return { ...base, mode: 'locating', metres: null, etaSec: null, startM: demoFrom };
+  if (fix.m > FAR_M) return { ...base, mode: 'far', metres: fix.m, etaSec: null, startM: fix.first };
   const speed = fix.speed && fix.speed > 2 ? fix.speed : CITY_MPS;
-  return { mode: 'live', metres: fix.m, etaSec: Math.round(fix.m / speed), startM: Math.max(fix.first, fix.m), startDemo, retry };
+  return { ...base, mode: 'live', metres: fix.m, etaSec: Math.round(fix.m / speed), startM: Math.max(fix.first, fix.m) };
 }
 
 export const formatDistance = (m: number) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`);

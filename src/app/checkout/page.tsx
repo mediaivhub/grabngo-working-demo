@@ -12,18 +12,21 @@ import { brandName } from '@/lib/cards';
 import { carName, plateText } from '@/lib/car';
 import { getPlace } from '@/data/mock';
 import { orderTotals } from '@/lib/pricing';
-import { useStore, type PaymentMethod } from '@/store/AppStore';
+import { TimingPicker } from '@/components/KitchenTiming';
+import { useStore, type KitchenTiming, type PaymentMethod } from '@/store/AppStore';
 
 type Choice = { id: string; method: PaymentMethod; label: string; sub: string; logo: ReactNode };
 
 export default function CheckoutScreen() {
   const router = useRouter();
-  const { cart, placeOrder, cards, car } = useStore();
+  const { cart, submitOrder, cards, car } = useStore();
   const atCar = cart.pickup === 'car' && !!car;
   // Apple Pay is always pre-selected; other methods sit behind "Change payment method".
   const [choiceId, setChoiceId] = useState('apple-pay');
   const [changing, setChanging] = useState(false);
   const [couponOpen, setCouponOpen] = useState(false);
+  // Optional: the kitchen starts straight away unless the customer picks otherwise.
+  const [timing, setTiming] = useState<KitchenTiming>('now');
   const [coupon, setCoupon] = useState('');
   const place = getPlace(cart.placeId) ?? getPlace('orfali')!;
   const totals = orderTotals(cart.lines);
@@ -114,6 +117,7 @@ export default function CheckoutScreen() {
             </div>
           )}
         </PickupInfo>
+        <TimingPicker place={place} lines={cart.lines} atCar={atCar} value={timing} onChange={setTiming} />
         <InvitationInCart placeId={place.id} lines={cart.lines} compact />
         <OrderSummary totals={totals} />
       </div>
@@ -122,7 +126,7 @@ export default function CheckoutScreen() {
         label={selected.method === 'apple-pay' ? 'Pay with Apple Pay' : selected.method === 'google-pay' ? 'Pay with Google Pay' : 'Confirm Pickup'}
         disabled={cart.lines.length === 0}
         onClick={() => {
-          placeOrder(selected.method);
+          submitOrder(selected.method, { placeId: cart.placeId, lines: cart.lines, pickup: cart.pickup, timing });
           router.replace('/order/confirmed');
         }}
       />

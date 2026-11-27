@@ -8,9 +8,10 @@ import { Car3DView, PlateBadge } from '@/components/car';
 import { cx } from '@/components/ui';
 import { getPlace, type Place } from '@/data/mock';
 import { type Car, model3dFor, plateText } from '@/lib/car';
-import { ARRIVE_M, formatDistance, formatEta, type Journey, useJourney } from '@/lib/journey';
+import { KitchenLine, shortName, StartButton } from '@/components/KitchenTiming';
+import { ARRIVE_M, formatDistance, formatEta, type Journey, metresFor, useJourney } from '@/lib/journey';
 import { useNow } from '@/lib/useNow';
-import { SPOTS, useStore, type Order } from '@/store/AppStore';
+import { isHeld, SPOTS, useStore, type Order } from '@/store/AppStore';
 
 /** The restaurant screen writes this every few seconds while it's open. */
 export const MERCHANT_SEEN_KEY = 'grabngo.merchant.seen';
@@ -38,11 +39,28 @@ export const ago = (at: number, now: number | null) => {
  * → "I'm in the grey G 63, left side" → "Ahmed is walking out" → handed over.
  */
 export function Curbside({ order }: { order: Order }) {
-  const { markArrived, patchOrder, walkOut } = useStore();
+  const { markArrived, patchOrder, walkOut, startKitchen } = useStore();
   const place = getPlace(order.placeId);
   const car = order.car!;
   const arrived = !!order.arrivedAt;
-  const journey = useJourney(place, !arrived);
+  const held = isHeld(order);
+  const prepSec = order.hold?.prepSec ?? 0;
+  // When the kitchen waits for the drive, the demo starts far enough out to show it starting on the way.
+  const journey = useJourney(place, !arrived, order.hold ? metresFor(prepSec + 240) : undefined);
+  const now = useNow(1000);
+  const tracking = journey.metres !== null && journey.etaSec !== null && journey.mode !== 'far';
+
+  // "When I'm on my way": the kitchen starts by itself once the drive left is about the prep time.
+  // The demo runs sped up, so its kitchen finishes when the demo drive does.
+  const fireNow = held && order.hold?.mode === 'arrive' && tracking && journey.etaSec! <= prepSec;
+  const demoEnd = journey.demoEndsAt;
+  useEffect(() => {
+    if (fireNow) startKitchen(order.id, demoEnd ?? undefined);
+  }, [fireNow, demoEnd, order.id, startKitchen]);
+  // Pulled in before saying go: start it now.
+  useEffect(() => {
+    if (arrived && held) startKitchen(order.id);
+  }, [arrived, held, order.id, startKitchen]);
 
   // Arrival is detected from location: no tap needed.
   const near = journey.metres !== null && journey.mode !== 'far' && journey.metres <= ARRIVE_M;
@@ -63,15 +81,17 @@ export function Curbside({ order }: { order: Order }) {
     patchOrder(order.id, { trip: { m: tripM, s: tripS, at: Date.now(), demo } });
   }, [arrived, tripM, tripS, demo, order.id, patchOrder]);
 
-  // With no restaurant screen open (a solo demo), someone walks out a few seconds after arrival.
+  // With no restaurant screen open (a solo demo), someone walks out a few seconds after arrival,
+  // once the order is actually ready.
   const staff = place?.staff[0] ?? 'Ahmed';
+  const cooked = !held && (order.status === 'ready' || (now !== null && now >= order.readyAt));
   useEffect(() => {
-    if (!arrived || order.walkingAt) return;
+    if (!arrived || !cooked || order.walkingAt) return;
     const t = setTimeout(() => {
       if (!merchantOpen()) walkOut(order.id, staff);
     }, 7000);
     return () => clearTimeout(t);
-  }, [arrived, order.walkingAt, order.id, staff, walkOut]);
+  }, [arrived, cooked, order.walkingAt, order.id, staff, walkOut]);
 
   return (
     <>
@@ -129,8 +149,18 @@ function Drive({ order, journey, place, onArrived }: { order: Order; journey: Jo
   const progress = tracking ? Math.min(1, Math.max(0, 1 - metres / Math.max(journey.startM, 1))) : 0;
 
   // Weigh the drive against the kitchen.
+  const held = isHeld(order);
+  const prepSec = order.hold?.prepSec ?? 0;
+  const name = shortName(place?.name);
   let timing = '';
-  if (tracking && now) {
+  if (held && tracking) {
+    const wait = etaSec - prepSec;
+    if (order.hold?.mode === 'arrive') timing = `${name} starts your order when you’re ${Math.round(prepSec / 60)} min away. Drive as you like.`;
+    else if (wait > 60) timing = `You’re ${formatEta(etaSec)} away and they need ${Math.round(prepSec / 60)}. Tap Start in about ${Math.round(wait / 60)} min.`;
+    else timing = `Start now and it’ll be ready as you pull in.`;
+  } else if (order.hold?.mode === 'arrive' && tracking && order.status !== 'ready') {
+    timing = `${name} started as you set off. Ready the moment you pull in.`;
+  } else if (tracking && now) {
     const readyIn = (order.readyAt - now) / 1000;
     const diff = readyIn - etaSec;
     if (order.status === 'ready' || readyIn <= 0) timing = 'Your order is ready. It’s kept hot until you pull in.';
@@ -167,6 +197,7 @@ function Drive({ order, journey, place, onArrived }: { order: Order; journey: Jo
                 <Store size={14} />
               </span>
             </div>
+            {order.hold && <KitchenLine order={order} />}
             <p className="mt-3 text-[14px] leading-5 text-ink/75">{timing}</p>
           </>
         ) : mode === 'locating' ? (
@@ -174,7 +205,13 @@ function Drive({ order, journey, place, onArrived }: { order: Order; journey: Jo
         ) : (
           <>
             <p className="mt-3 text-[15px] font-medium leading-[21px] text-ink">
-              {mode === 'off' ? 'Turn on location and we’ll time your order to your drive.' : `You’re ${formatDistance(metres ?? 0)} away. Tracking starts as you head over.`}
+              {held
+                ? mode === 'off'
+                  ? `Location is off, so tap Start when you’re about ${Math.round(prepSec / 60)} min away.`
+                  : `You’re ${formatDistance(metres ?? 0)} away. Tap Start when you’re about ${Math.round(prepSec / 60)} min out.`
+                : mode === 'off'
+                  ? 'Turn on location and we’ll time your order to your drive.'
+                  : `You’re ${formatDistance(metres ?? 0)} away. Tracking starts as you head over.`}
             </p>
             <p className="mt-1 text-[13px] leading-[18px] text-gray">Keep this screen open while you drive. We’ll know the moment you pull in.</p>
             <div className="mt-4 flex gap-2">
@@ -190,6 +227,11 @@ function Drive({ order, journey, place, onArrived }: { order: Order; journey: Jo
           </>
         )}
       </section>
+      {held && (
+        <div className="mt-3">
+          <StartButton order={order} label={order.hold?.mode === 'arrive' && tracking ? 'Start it now instead' : 'Start my order'} />
+        </div>
+      )}
       <button type="button" onClick={onArrived} className="mt-3 h-[52px] w-full rounded-full bg-surface text-[15px] font-medium text-ink active:scale-[0.99]">
         Already here? Let them know
       </button>
@@ -270,7 +312,11 @@ function Handoff({ order, car, place }: { order: Order; car: Car; place?: Place 
               </span>
               {place?.name.split(' ')[0] === 'The' ? place?.name.split(' ')[1] : place?.name.split(' ')[0]} knows you’re here
             </p>
-            <p className="mt-1 text-[13.5px] leading-[19px] text-gray">Someone will be out with your order in a moment. Stay in the car.</p>
+            <p className="mt-1 text-[13.5px] leading-[19px] text-gray">
+              {now && order.status !== 'ready' && order.readyAt - now > 30_000
+                ? `It’s being made now, about ${Math.ceil((order.readyAt - now) / 60_000)} min. They’ll bring it straight out. Stay in the car.`
+                : 'Someone will be out with your order in a moment. Stay in the car.'}
+            </p>
           </div>
         )}
       </section>

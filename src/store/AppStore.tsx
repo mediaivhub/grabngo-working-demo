@@ -1,11 +1,12 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
-import { getMenu, menuProduct, PREP_SECONDS, seedNotifications, type AppNotification, type FoodTag } from '@/data/mock';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
+import { getMenu, getPlace, menuProduct, PREP_SECONDS, seedNotifications, type AppNotification, type FoodTag } from '@/data/mock';
 import { type Car, DEMO_CAR, model3dFor, plateText } from '@/lib/car';
 import { acceptedInvitationFor, checkInvitation } from '@/lib/invitations';
 import { flyToCart } from '@/components/CartFly';
 import { setOnboarded } from '@/lib/onboarding';
+import { prepFor } from '@/lib/pickup';
 import { orderTotals, unitPrice, type AddonSelection, type Size } from '@/lib/pricing';
 
 export type CartLine = {
@@ -20,6 +21,8 @@ export type CartLine = {
 export type OrderStatus = 'preparing' | 'ready' | 'completed';
 export type PickupMode = 'counter' | 'car';
 export type PaymentMethod = 'cash' | 'apple-pay' | 'google-pay' | 'card';
+/** When the kitchen starts: straight away, by itself as you drive in (live location), or when you tap Start. */
+export type KitchenTiming = 'now' | 'arrive' | 'say';
 
 export type Order = {
   id: string;
@@ -48,7 +51,18 @@ export type Order = {
   handedAt?: number;
   /** The customer's live drive in, shared with the restaurant: metres away and seconds to arrive. */
   trip?: { m: number; s: number; at: number; demo?: boolean };
+  /** Paid, but the kitchen waits: for the car to get close ('arrive') or for the customer's tap ('say'). */
+  hold?: { mode: Exclude<KitchenTiming, 'now'>; prepSec: number; /** "Start at 16:28": the kitchen starts itself then. */ startAt?: number };
+  /** When the kitchen actually started a held order. */
+  firedAt?: number;
 };
+
+/** Paid but not started yet. */
+export const isHeld = (o: Order) => !!o.hold && !o.firedAt;
+/** When the kitchen started: when you paid, or when a held order was started. */
+export const kitchenStart = (o: Order) => o.firedAt ?? o.createdAt;
+/** A held order's ready time is parked a day out until it starts, so nothing counts it down by mistake. */
+const PARKED_MS = 24 * 3600 * 1000;
 
 /** Where the customer can say they've parked, in one tap. */
 export const SPOTS = ['Left side', 'Right side', 'By the entrance'] as const;
@@ -69,7 +83,7 @@ export const EMPTY_FILTERS: SearchFilters = { minPrice: null, maxPrice: null, fo
 type State = {
   /** True once saved data has been loaded into the store (never saved itself). */
   hydrated: boolean;
-  cart: { placeId: string; lines: CartLine[]; carPlate: string; pickup?: PickupMode };
+  cart: { placeId: string; lines: CartLine[]; carPlate: string; pickup?: PickupMode; timing?: KitchenTiming };
   /** The customer's saved car for curbside pickup. */
   car: Car | null;
   /** Invitations the customer has accepted (ids). */
@@ -176,6 +190,7 @@ type Action =
   | { type: 'car'; car: Car | null }
   | { type: 'acceptInvitation'; id: string }
   | { type: 'pickup'; mode: PickupMode }
+  | { type: 'timing'; timing: KitchenTiming }
   | { type: 'arrived'; id: string; at: number }
   | { type: 'patchOrder'; id: string; patch: Partial<Order> }
   | { type: 'syncOrders'; orders: Order[] };
@@ -265,6 +280,8 @@ function reducer(state: State, action: Action): State {
       return state.invitations?.includes(action.id) ? state : { ...state, invitations: [...(state.invitations ?? []), action.id] };
     case 'pickup':
       return { ...state, cart: { ...state.cart, pickup: action.mode } };
+    case 'timing':
+      return { ...state, cart: { ...state.cart, timing: action.timing } };
     case 'arrived':
       return { ...state, orders: state.orders.map((o) => (o.id === action.id && !o.arrivedAt ? { ...o, arrivedAt: action.at } : o)) };
     case 'patchOrder':
@@ -296,6 +313,25 @@ function useStoreValue() {
       if (raw) saved = JSON.parse(raw) as Partial<State>;
     } catch {}
     dispatch({ type: 'hydrate', state: { ...saved, prefs: { ...initialState.prefs, ...saved.prefs } } });
+  }, []);
+
+  // Scheduled starts ("Start at 16:28") fire by themselves, with the kitchen time as it is then.
+  const ordersRef = useRef(state.orders);
+  useEffect(() => {
+    ordersRef.current = state.orders;
+  }, [state.orders]);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const now = Date.now();
+      for (const o of ordersRef.current) {
+        const at = o.hold?.startAt;
+        if (!o.hold || o.firedAt || !at || at > now || o.status === 'completed') continue;
+        const place = getPlace(o.placeId);
+        const prep = place ? prepFor(place, o.lines, at).min * 60 : o.hold.prepSec;
+        dispatch({ type: 'patchOrder', id: o.id, patch: { firedAt: at, readyAt: at + prep * 1000 } });
+      }
+    }, 2000);
+    return () => clearInterval(t);
   }, []);
 
   // Live sync between tabs on this device: the customer app and the restaurant screen share orders.
@@ -344,31 +380,43 @@ function useStoreValue() {
     [],
   );
 
-  const placeOrder = useCallback(
-    (payment: PaymentMethod) => {
+  /** Builds and places an order. The cart is the default source; one-tap reorders pass their own. */
+  const submitOrder = useCallback(
+    (payment: PaymentMethod, src: { placeId: string; lines: CartLine[]; pickup?: PickupMode; timing?: KitchenTiming }) => {
       const now = Date.now();
       // An accepted invitation whose rule the cart meets adds its gift, free.
-      const inv = acceptedInvitationFor(state.cart.placeId, state.invitations);
+      const inv = acceptedInvitationFor(src.placeId, state.invitations);
       const giftLines: CartLine[] =
-        inv && checkInvitation(inv, state.cart.lines).eligible
+        inv && checkInvitation(inv, src.lines).eligible
           ? [{ key: `gift|${inv.id}`, productId: inv.giftProductId, size: 'M', addons: {}, qty: 1, unitPrice: 0 }]
           : [];
+      const atCar = src.pickup === 'car' && !!state.car;
+      // "When I arrive" needs the curbside drive tracking; at the counter it becomes "When I say".
+      const timing = src.timing === 'arrive' && !atCar ? 'say' : (src.timing ?? 'now');
+      const place = getPlace(src.placeId);
+      const hold = timing !== 'now' && place ? { mode: timing, prepSec: prepFor(place, src.lines, now).min * 60 } : undefined;
       const order: Order = {
         id: `GNG-${String(now).slice(-6)}`,
-        placeId: state.cart.placeId,
-        lines: [...state.cart.lines, ...giftLines],
-        total: orderTotals(state.cart.lines).total,
+        placeId: src.placeId,
+        lines: [...src.lines, ...giftLines],
+        total: orderTotals(src.lines).total,
         createdAt: now,
-        readyAt: now + PREP_SECONDS * 1000,
+        readyAt: hold ? now + PARKED_MS : now + PREP_SECONDS * 1000,
         status: 'preparing',
         favorite: false,
         payment,
-        ...(state.cart.pickup === 'car' && state.car ? { car: state.car, carPlate: plateText(state.car), bay: (now % 6) + 1 } : {}),
+        ...(hold ? { hold } : {}),
+        ...(atCar && state.car ? { car: state.car, carPlate: plateText(state.car), bay: (now % 6) + 1 } : {}),
       };
       dispatch({ type: 'placeOrder', order });
       return order.id;
     },
-    [state.cart, state.car, state.invitations],
+    [state.car, state.invitations],
+  );
+
+  const placeOrder = useCallback(
+    (payment: PaymentMethod) => submitOrder(payment, { placeId: state.cart.placeId, lines: state.cart.lines, pickup: state.cart.pickup, timing: state.cart.timing ?? 'now' }),
+    [submitOrder, state.cart],
   );
 
   const reorder = useCallback((order: Order) => {
@@ -386,7 +434,25 @@ function useStoreValue() {
       activeOrder,
       addToCart,
       placeOrder,
+      submitOrder,
       reorder,
+      setTiming: (timing: KitchenTiming) => dispatch({ type: 'timing', timing }),
+      /** Have a held order start itself at a time (or clear it with undefined). */
+      scheduleStart: (id: string, startAt?: number) => {
+        const o = state.orders.find((x) => x.id === id);
+        if (o?.hold) dispatch({ type: 'patchOrder', id, patch: { hold: { ...o.hold, startAt } } });
+      },
+      /** Start a held order. By default it's ready after the kitchen's prep time. */
+      startKitchen: (id: string, readyAt?: number) =>
+        dispatch({
+          type: 'patchOrder',
+          id,
+          patch: (() => {
+            const o = state.orders.find((x) => x.id === id);
+            const t = Date.now();
+            return { firedAt: t, readyAt: readyAt ?? t + (o?.hold?.prepSec ?? PREP_SECONDS) * 1000 };
+          })(),
+        }),
       setQty: (key: string, qty: number) => dispatch({ type: 'qty', key, qty }),
       setCarPlate: (value: string) => dispatch({ type: 'carPlate', value }),
       setCar: (car: Car | null) => dispatch({ type: 'car', car }),
@@ -416,7 +482,7 @@ function useStoreValue() {
       sendChat: (from: ChatMessage['from'], text: string) =>
         dispatch({ type: 'chat', message: { id: `m${Date.now()}${Math.random().toString(36).slice(2, 6)}`, from, text, at: Date.now() } }),
     }),
-    [state, ready, cartCount, activeOrder, addToCart, placeOrder, reorder],
+    [state, ready, cartCount, activeOrder, addToCart, placeOrder, submitOrder, reorder],
   );
 }
 

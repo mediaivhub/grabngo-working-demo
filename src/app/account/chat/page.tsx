@@ -14,6 +14,7 @@ function botReply(text: string, order?: Order) {
   const place = order ? getPlace(order.placeId) : undefined;
   if (/where|status|ready|order/.test(t) && !/refund/.test(t)) {
     if (!order) return 'You don’t have an active order right now. Anything else I can help with?';
+    if (order.hold && !order.firedAt) return `Your order ${order.id} is paid and ${place?.name} is holding it. They’ll start it ${order.hold.mode === 'arrive' ? 'as you drive in' : 'when you tap Start'} on the order screen.`;
     const mins = Math.max(0, Math.ceil((order.readyAt - Date.now()) / 60000));
     return mins > 0 ? `Your order ${order.id} is being prepared at ${place?.name} — about ${mins} min to go. We’ll notify you when it’s ready.` : `Your order ${order.id} is ready for pickup at ${place?.name}, ${place?.address}.`;
   }
